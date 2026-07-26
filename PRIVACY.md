@@ -1,51 +1,81 @@
-# ReminiSense Privacy Guardrails
+# ReminiSense Privacy Design
 
-ReminiSense handles the most intimate data imaginable — a person's memory.
-These guardrails are engineered in, not policy promises.
+ReminiSense handles intimate data — who you met and what you said. This
+document describes what the system **actually does**, so it can be checked
+against the code rather than taken on trust.
 
-## 1. No biometrics, ever
-We never compute or store face embeddings, face templates, or any biometric
-identifier. Recognition works from **plain-language descriptive notes**
-("shoulder-length dark hair, round glasses") written at enrollment with the
-family's consent. Delete the note and nothing about the face remains.
-There is no face database to breach.
+## What we store
 
-## 2. Frames are ephemeral
-Camera frames are processed in memory, written only to a temp file for the
-vision call, and **deleted immediately after** (`vision.cleanup()` runs on
-every path, including errors). No image is ever persisted to the graph,
-logs, or disk.
+**Face embeddings: yes.** `Person.face_vec` holds a 128-dimensional SFace
+embedding computed locally by OpenCV. This is a biometric identifier and we
+treat it as one. It is written at enrollment and persists until the Person node
+is deleted.
 
-## 3. The memory graph is private by architecture
-Everything hangs off a per-user `root` node — Jac's persistence model gives
-every account an **isolated private graph**. Eleanor's memories live in
-Eleanor's node. There is no cross-user query surface.
+We chose this over the alternative — asking a vision model to identify people
+from descriptive notes — after measuring both. The embedding takes 31ms
+on-device against 1,260ms for a model call, and it cannot be talked into naming
+the wrong person. Deterministic local matching is the more privacy-respecting
+of the two designs, but it is **not** "no biometrics", and describing it that
+way would be false.
 
-## 4. Consent-based enrollment
-People appear in the graph only when a family member enrolls them
-deliberately. ReminiSense never auto-enrolls strangers: an unrecognized
-face produces a gentle generic whisper and **stores nothing**.
+**Conversation transcripts: yes.** `Interaction.transcript` stores what was
+said, verbatim. That is the point of the product — recall without taking notes
+— but it means the graph contains real speech.
 
-## 5. The right to be forgotten is a first-class walker
-`POST /walker/forget {"name": "..."}` deletes a person, their encounters,
-their Connection Card, and all references — walked and removed from the
-graph in one call. Demonstrable on demand.
+**Camera frames: no.** Frames arrive as base64, are decoded in memory, embedded,
+and discarded. No image is written to the graph, to logs, or to disk.
 
-## 6. Whispers never shame, never diagnose
-Tone rules live in `sem` annotations: never mention the diagnosis, never
-say "you forgot." The safety-critical path (double-dose prevention) is
-**deterministic graph logic — no LLM in the loop** — so medication
-decisions are auditable line by line.
+## What leaves the device
 
-## 7. Persona filter — summaries only, at write time
-Every encounter passes through a sanitization layer BEFORE it touches the
-graph: a typed `sanitize_summary` LLM filter (with a deterministic regex
-fallback) strips third-party medical details, finances, credentials,
-addresses, and anything embarrassing. Only a warm neutral summary is
-stored — raw conversation content never enters the memory graph, so it
-can never leak from it.
+| Data | Leaves? |
+|---|---|
+| Camera frame | To your own machine on the LAN. Never to a third party. |
+| Face embedding | Never — computed and compared locally. |
+| Transcript text | To the LLM, for extraction and phrasing. |
 
-## 8. Caregiver transparency, not surveillance
-Maya sees a daily digest letter and medication adherence — not a camera
-feed, not a location trail, not raw transcripts. Alerts fire only for
-safety events (a prevented double dose).
+Face recognition works with **no network at all**. The models
+(`backend/models/*.onnx`, 39MB) are vendored in the repo. Only the language
+steps — captions, extraction, the spoken line — call an API.
+
+The server binds to your LAN with anonymous `walker:pub` endpoints and no
+authentication. **That is a demo posture, not a deployment posture.** Anyone on
+the same network can read the whole graph. Do not run this on a public network
+with real people's data in it.
+
+## Deliberate refusals
+
+These are enforced in code, not aspiration:
+
+**No confident match means silence.** Below the 0.363 cosine threshold the
+walker returns `spoken: ""` and the client says nothing. A wrong name whispered
+with confidence is worse than no name at all.
+
+**Names are never guessed.** `ingest` records a name only if someone actually
+states it — it will not infer one from a voice, a face, or context. It returns
+`saved: ""` instead.
+
+**Pronouns are never inferred.** `Person` has no pronoun field, and every
+`by llm()` that produces user-facing text is instructed to use the person's
+name or "they", never to guess from a name or an appearance.
+
+## Deletion
+
+Deleting a `Person` cascades to their edges; `Reset` clears the graph. Because
+Jac persists the graph to disk, deletion is only fully complete once
+`backend/.jac/data` is cleared — `Reset` handles the graph, the directory is
+the backstop.
+
+## What is missing before this touches real users
+
+Named plainly, because a hackathon build should not imply more than it has:
+
+- **Authentication.** Every endpoint is anonymous today.
+- **Encryption at rest** for `face_vec` and `transcript`.
+- **Consent from the person being remembered.** Only the wearer consents right
+  now. The other person is enrolled without being asked, which is the sharpest
+  ethical edge in this design and is not solved.
+- **Retention limits** on transcripts.
+- **A `forget` endpoint.** Deletion currently means `Reset` or removing the
+  node directly; there is no per-person right-to-be-forgotten call.
+
+None of these are implemented.

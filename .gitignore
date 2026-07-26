@@ -3,3 +3,7 @@
 .cursor/mcp.json
 .vscode/mcp.json
 opencode.json
+
+# jac build artifacts / persisted graph
+.jac/
+**/.jac/

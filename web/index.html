@@ -135,16 +135,16 @@
   <div class="status"><span id="dot" class="dot"></span><span id="dotLabel">connecting…</span></div>
   <nav class="tabs">
     <button id="tab-live" class="active" onclick="showView('live')">Live Memory</button>
-    <button id="tab-maya" onclick="showView('maya')">Maya's View</button>
+    <button id="tab-maya" onclick="showView('maya')">Timeline</button>
   </nav>
 </header>
 
 <div class="demo">
   <span class="label">Demo moments</span>
-  <button class="moment" onclick="glance('maya_first',this)">👋 Maya arrives</button>
-  <button class="moment" onclick="glance('maya_second',this)">👋 Maya returns</button>
-  <button class="moment" onclick="glance('metformin_ok',this)">💊 Morning Metformin</button>
-  <button class="moment warnbtn" onclick="glance('metformin_double',this)">⚠️ Second Metformin</button>
+  <input id="heard" class="moment" style="min-width:340px" placeholder="Type what they just said, then Enter…"
+         onkeydown="if(event.key==='Enter')hear(this)">
+  <input id="askq" class="moment" style="min-width:260px" placeholder="Ask: who did I meet in fintech?"
+         onkeydown="if(event.key==='Enter')ask(this)">
   <span style="flex:1"></span>
   <button class="util" onclick="seed(this)">Seed demo data</button>
   <button class="util" onclick="resetDay(this)">Reset day</button>
@@ -168,21 +168,17 @@
 
   <section id="view-maya" class="view">
     <div class="card col-l">
-      <h2>Today, at a glance</h2>
-      <div class="sub">Everything Dad's day held, in order</div>
-      <ul id="timeline" class="tl"><li class="empty">Nothing yet today.</li></ul>
+      <h2>Everyone you've met</h2>
+      <div class="sub">Every conversation and sighting, in order</div>
+      <ul id="timeline" class="tl"><li class="empty">Nothing yet.</li></ul>
     </div>
     <div class="col-r">
       <div class="card">
-        <h2>Medication</h2>
-        <div class="sub">Doses taken today</div>
-        <div id="ticks" class="ticks"><div class="empty">No doses recorded yet.</div></div>
-      </div>
-      <div class="card">
-        <h2>Today's letter</h2>
-        <div class="sub">A warm summary of the day, written for you</div>
-        <button id="letterBtn" onclick="writeLetter(this)">✒️ Write today's letter</button>
-        <div id="letter"></div>
+        <h2>Recall</h2>
+        <div class="sub">Who was that, and what did we say?</div>
+        <input id="whoq" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid #0002"
+               placeholder="A name, or 'last'…" onkeydown="if(event.key==='Enter')who(this)">
+        <div id="ticks" class="ticks"><div class="empty">Ask for a name above.</div></div>
       </div>
     </div>
   </section>
@@ -240,6 +236,7 @@ const KIND = {
   encounter: {shape:"circle", r:7,  fill:"#D99A3D"},
   medication:{shape:"rect",   r:17, fill:"#7C9B72"},
   dose:      {shape:"rect",   r:9,  fill:"#A8BF9E"},
+  topic:     {shape:"rect",   r:11, fill:"#8FA9B8"},
   object:    {shape:"circle", r:10, fill:"#C9B99B"},
   care:      {shape:"rect",   r:14, fill:"#D9A47E"}
 };
@@ -409,7 +406,7 @@ function renderTimeline(data){
       <div class="when">${fmtTime(ev.ts)}</div><div class="txt">${ev.text}</div>`;
     ul.appendChild(li);
   }
-  const doses = evs.filter(e=>e.kind==="dose" || e.kind==="alert").reverse();
+  const doses = [];
   const tk = $("ticks");
   tk.innerHTML = doses.length ? "" : '<div class="empty">No doses recorded yet.</div>';
   for(const d of doses){
@@ -427,45 +424,67 @@ async function refresh(){
   renderGraph(g);
   renderTimeline(tl);
 }
-async function glance(scenario, btn){
-  btn.disabled = true;
+async function hear(el){
+  const transcript = el.value.trim();
+  if(!transcript) return;
+  el.disabled = true;
   try{
-    const res = await call("glance_cached", {scenario});
-    await addBubble(res.whisper);
+    const res = await call("ingest", {transcript});
+    await addBubble(res.saved
+      ? `Logged ${res.saved}${res.topics && res.topics.length ? " — " + res.topics.join(", ") : ""}`
+      : "Nobody introduced themselves — nothing saved.");
+    el.value = "";
     await refresh();
   }catch(e){ console.warn(e); }
-  btn.disabled = false;
+  el.disabled = false; el.focus();
+}
+async function ask(el){
+  const question = el.value.trim();
+  if(!question) return;
+  el.disabled = true;
+  try{
+    const res = await call("query", {question});
+    const names = (res.matches || []).map(m => m.name);
+    await addBubble(names.length ? names.join(", ") + " — " + res.reason : res.reason);
+  }catch(e){ console.warn(e); }
+  el.disabled = false;
 }
 async function seed(btn){
   btn.disabled = true;
-  try{ await call("seed_demo"); await refresh(); }catch(e){ console.warn(e); }
+  try{ await call("Seed"); await refresh(); }catch(e){ console.warn(e); }
   btn.disabled = false;
 }
 async function resetDay(btn){
   btn.disabled = true;
   try{
-    await call("reset_day");
+    await call("Reset");
     $("feed").innerHTML = '<div class="empty">No whispers yet — try a demo moment above.</div>';
     $("letter").classList.remove("show");
     await refresh();
   }catch(e){ console.warn(e); }
   btn.disabled = false;
 }
-async function writeLetter(btn){
-  btn.disabled = true;
+async function who(el){
+  const name = el.value.trim() || "last";
+  el.disabled = true;
   try{
-    const res = await call("daily_digest");
-    const el = $("letter");
-    el.textContent = res.digest;
-    el.classList.add("show");
+    const res = await call("recall", {name});
+    const tk = $("ticks");
+    if(!res.found){ tk.innerHTML = '<div class="empty">' + (res.reason || "Not found") + '</div>'; }
+    else{
+      tk.innerHTML = '<div class="tick"><span class="mark">\u2713</span><span><b>' +
+        res.headline + '</b></span></div>' +
+        (res.lines || []).map(l => '<div class="tick"><span class="mark">\u00b7</span><span>' + l + '</span></div>').join("");
+      loadCard(res.name, false);
+    }
   }catch(e){ console.warn(e); }
-  btn.disabled = false;
+  el.disabled = false;
 }
 
 /* ---------- boot ---------- */
 initGraph();
 (async ()=>{
-  try{ await call("seed_demo"); await refresh(); }
+  try{ await call("Seed"); await refresh(); }
   catch(e){ console.warn("Backend offline", e); }
 })();
 </script>
