@@ -381,6 +381,26 @@ impl daily_digest.go {
     report {"digest": text};
 }
 
+# ------------------------------------------------------------------ forget --
+# The right to be forgotten, as a graph walk: the person, their encounters,
+# their Connection Card, every reference — removed in one call.
+
+impl forget.go {
+    people = [p for p in [-->(?:Person)] if p.name.lower() == self.name.lower()];
+    if len(people) == 0 {
+        report {"forgotten": False, "reason": f"no person named {self.name}"};
+        disengage;
+    }
+    p = people[0];
+    removed_encounters = 0;
+    for e in [p ->:RemembersWith:->(?:Encounter)] {
+        here del --> e;
+        removed_encounters += 1;
+    }
+    here del --> p;
+    report {"forgotten": True, "name": self.name, "encounters_removed": removed_encounters};
+}
+
 # --------------------------------------------------------------- reset_day --
 
 impl reset_day.go {

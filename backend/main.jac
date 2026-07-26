@@ -208,6 +208,11 @@ walker :pub daily_digest {
     can go with Root entry;
 }
 
+walker :pub forget {
+    has name: str;
+    can go with Root entry;
+}
+
 walker :pub reset_day {
     can go with Root entry;
 }
