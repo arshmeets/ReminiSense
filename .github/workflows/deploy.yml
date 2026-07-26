@@ -1,0 +1,71 @@
+name: Deploy backend to sodhiserver
+
+# The server is a Mac with no inbound ports open to the internet. The runner
+# joins the tailnet instead, and reaches it at its Tailscale address.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-sodhiserver
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Join the tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: arshmeetsodhi@100.88.245.48
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          # The key is pinned to a forced command on the server, so it can only
+          # run the deploy script - no arguments are sent or honoured.
+          ssh -i ~/.ssh/deploy \
+              -o StrictHostKeyChecking=accept-new \
+              -o ConnectTimeout=30 \
+              "$HOST"
+
+      - name: Verify the deployed build answers
+        run: |
+          set -e
+          # Cloudflare's bot rules reject default script user-agents, so send a
+          # real one - this is the same reason iOS must set an explicit UA.
+          UA='ReminiSense-CI/1.0 (+github-actions)'
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+                     -H "User-Agent: $UA" https://jac.sodhiserver.com/docs || true)
+            [ "$code" = "200" ] && break
+            echo "waiting for backend (got $code)..."; sleep 4
+          done
+          [ "$code" = "200" ] || { echo "backend did not come back up"; exit 1; }
+
+          body=$(curl -s --max-time 60 -X POST \
+                   https://jac.sodhiserver.com/walker/caption \
+                   -H 'Content-Type: application/json' \
+                   -H "User-Agent: $UA" \
+                   -d '{"text":"deployment smoke test","lang":"en"}')
+          echo "$body" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+r=(d.get('data') or {}).get('reports') or []
+if not r or 'display_text' not in r[0]:
+    print('smoke test failed:', json.dumps(d)[:300]); sys.exit(1)
+print('backend healthy:', r[0]['display_text'][:80])
+"
