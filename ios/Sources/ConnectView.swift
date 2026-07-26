@@ -1,148 +1,161 @@
 import SwiftUI
 
+/// Hardware + backend setup. Glasses are optional everywhere in Recall —
+/// the iPhone camera is a first-class capture source, not a degraded mode.
 struct ConnectView: View {
     @EnvironmentObject private var glasses: GlassesManager
     @AppStorage("reminiUsePhoneCamera") private var usePhoneCamera = false
-    @AppStorage("reminiBaseURL") private var baseURL = ReminiAPI.defaultBase
+    @AppStorage("recallBaseURL") private var baseURL = RecallAPI.defaultBase
     @State private var backendStatus: String?
     @State private var checkingBackend = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 16) {
                     statusCard
                     cameraCard
-                    settingsCard
+                    backendCard
                 }
                 .padding(20)
             }
-            .background(Color.rsCream.ignoresSafeArea())
+            .recallScreen()
             .navigationTitle("Connect")
+            .navigationBarTitleDisplayMode(.large)
         }
     }
 
     private var statusCard: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             ZStack {
                 Circle()
                     .fill(
-                        LinearGradient(
-                            colors: glasses.isConnected
-                                ? [.rsSage, .rsSage.opacity(0.7)]
-                                : [.rsAmber.opacity(0.5), .rsTerracotta.opacity(0.4)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        glasses.isConnected
+                            ? Color.rcAccent.opacity(0.18)
+                            : Color.rcSurfaceHi
+                    )
+                    .overlay(
+                        Circle().stroke(
+                            glasses.isConnected ? Color.rcAccent : Color.rcLine,
+                            lineWidth: 1.5
                         )
                     )
-                    .frame(width: 92, height: 92)
+                    .frame(width: 84, height: 84)
                 Image(systemName: "eyeglasses")
-                    .font(.system(size: 40))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 34))
+                    .foregroundStyle(
+                        glasses.isConnected ? Color.rcAccent : Color.rcTextDim
+                    )
             }
-            .animation(.easeInOut(duration: 0.4), value: glasses.isConnected)
+            .animation(.easeInOut(duration: 0.35), value: glasses.isConnected)
 
             Text(glasses.isConnected ? "Glasses connected" : "Glasses not connected")
-                .font(.rsSerif(26))
-                .foregroundStyle(Color.rsInk)
+                .font(.rcDisplay(22))
+                .foregroundStyle(Color.rcText)
 
             Text(glasses.statusText)
-                .font(.rsCaption)
-                .foregroundStyle(Color.rsInkSoft)
+                .font(.rcCaption)
+                .foregroundStyle(Color.rcTextDim)
                 .multilineTextAlignment(.center)
 
             if glasses.displayReady {
                 Label("Lens display ready", systemImage: "sparkles")
-                    .font(.rsCaption.weight(.medium))
-                    .foregroundStyle(Color.rsSage)
+                    .font(.rcCaption.weight(.medium))
+                    .foregroundStyle(Color.rcAccent)
             }
 
             Button {
                 glasses.toggleConnection()
             } label: {
                 Text(glasses.isConnected ? "Disconnect" : "Connect glasses")
-                    .font(.rsBodyMedium)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(glasses.isConnected ? Color.rsInkSoft : Color.rsTerracotta)
-            .clipShape(Capsule())
+            .buttonStyle(AccentButtonStyle())
         }
-        .padding(24)
+        .padding(20)
         .frame(maxWidth: .infinity)
-        .background(Color.rsCard)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .shadow(color: Color.rsInk.opacity(0.06), radius: 10, y: 4)
+        .background(Color.rcSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.rcLine, lineWidth: 1)
+        )
     }
 
     private var cameraCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Toggle(isOn: $usePhoneCamera) {
-                Label("Use iPhone camera", systemImage: "iphone")
-                    .font(.rsBodyMedium)
-                    .foregroundStyle(Color.rsInk)
+                Label("Force the iPhone camera", systemImage: "iphone")
+                    .font(.rcBodyMedium)
+                    .foregroundStyle(Color.rcText)
             }
-            .tint(.rsTerracotta)
+            .tint(.rcAccent)
 
             Text(
                 usePhoneCamera
-                    ? "Glances will use the phone's rear camera — perfect for demos without glasses."
-                    : "Glances use the glasses camera when connected, and quietly fall back to the phone when not."
+                    ? "Capture always uses the phone's rear camera — the whole demo runs without glasses."
+                    : "Capture uses the glasses camera when they're connected and falls back to the phone the moment they aren't."
             )
-            .font(.rsCaption)
-            .foregroundStyle(Color.rsInkSoft)
+            .font(.rcCaption)
+            .foregroundStyle(Color.rcTextDim)
         }
-        .softCard()
+        .panel()
     }
 
-    private var settingsCard: some View {
+    private var backendCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Care backend")
-                .font(.rsSerif(20))
-                .foregroundStyle(Color.rsInk)
+            SectionLabel("Graph backend", icon: "point.3.filled.connected.trianglepath.dotted")
 
-            TextField("Backend URL", text: $baseURL)
-                .font(.system(size: 16, design: .monospaced))
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-                .padding(12)
-                .background(Color.rsCream)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            TextField(
+                "", text: $baseURL,
+                prompt: Text(RecallAPI.defaultBase).foregroundColor(Color.rcTextDim)
+            )
+            .font(.rcMono)
+            .foregroundStyle(Color.rcText)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .keyboardType(.URL)
+            .padding(12)
+            .background(Color.rcSurfaceHi)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button {
                     Task { await checkBackend() }
                 } label: {
                     if checkingBackend {
-                        ProgressView().controlSize(.small)
+                        ProgressView().controlSize(.small).tint(.rcAccent)
                     } else {
-                        Text("Test connection")
-                            .font(.rsCaption.weight(.medium))
+                        Label("Test connection", systemImage: "bolt.horizontal")
                     }
                 }
-                .buttonStyle(.bordered)
-                .tint(.rsTerracotta)
+                .buttonStyle(GhostButtonStyle(tint: .rcAccent))
 
-                if let backendStatus {
-                    Text(backendStatus)
-                        .font(.rsCaption)
-                        .foregroundStyle(
-                            backendStatus.hasPrefix("Connected")
-                                ? Color.rsSage : Color.rsWarn
-                        )
+                Button("Reset to default") {
+                    baseURL = RecallAPI.defaultBase
+                    backendStatus = nil
                 }
+                .buttonStyle(GhostButtonStyle(tint: .rcTextDim))
+            }
+
+            if let backendStatus {
+                Text(backendStatus)
+                    .font(.rcCaption)
+                    .foregroundStyle(
+                        backendStatus.hasPrefix("Connected")
+                            ? Color.rcAccent : Color.rcAlert
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .softCard()
+        .panel()
     }
 
     private func checkBackend() async {
         checkingBackend = true
         defer { checkingBackend = false }
         do {
-            _ = try await ReminiAPI.timeline()
-            backendStatus = "Connected"
+            let people = try await RecallAPI.roster()
+            backendStatus = "Connected — \(people.count) people in the graph."
         } catch {
             backendStatus = "Unreachable — \(error.localizedDescription)"
         }

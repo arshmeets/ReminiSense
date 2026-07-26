@@ -25,7 +25,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reminisense.app
-        DEVELOPMENT_TEAM: 2M4ZNZFDWY
+        # Team ID from the signing cert's OU (matches the local
+        # "iOS Team Provisioning Profile: com.reminisense.app").
+        DEVELOPMENT_TEAM: 6TMMQ8VD2T
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
         TARGETED_DEVICE_FAMILY: "1"
@@ -33,10 +35,12 @@ targets:
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: ReminiSense
+        CFBundleDisplayName: Recall
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        NSCameraUsageDescription: ReminiSense uses the iPhone camera as a fallback when your glasses are not connected.
+        NSCameraUsageDescription: Recall captures one frame at a time to recognise who you're talking to — from your glasses, or the iPhone camera when they aren't connected.
+        NSMicrophoneUsageDescription: Recall listens while you hold the Listen button so it can turn an introduction into a contact in your network graph.
+        NSSpeechRecognitionUsageDescription: Recall transcribes what you capture with the Listen button so the graph can pull out names, companies and follow-ups.
         NSBluetoothAlwaysUsageDescription: Needed to connect to your Meta Ray-Ban Display glasses.
         NSLocalNetworkUsageDescription: Lets your phone find and talk to your glasses over Wi-Fi.
         NSBonjourServices: [_bonjour._tcp]

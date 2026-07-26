@@ -1,7 +1,7 @@
 import Foundation
 import MWDATDisplay
 
-/// Renders whisper cards on the glasses lens. This file deliberately does
+/// Renders Recall cards on the glasses lens. This file deliberately does
 /// NOT import SwiftUI so the Display DSL names (Text, Button, FlexBox) stay
 /// unambiguous — same convention as Meta's DisplayAccess sample.
 ///
@@ -19,90 +19,122 @@ final class ReminiCards {
 
     /// Monotonic counter so a stale auto-clear never wipes a newer card.
     private var generation = 0
-    private var bulletsCache: [String: [String]] = [:]
+    /// Lines of the card currently on the lens, for the "more" pager.
+    private var pagerLines: [String] = []
+    private var pagerName = ""
 
     private init() {}
 
-    func show(text: String, kind: String, matched: String) async {
+    /// The wordmark on the lens. The Display DSL has no per-run styling
+    /// inside a single Text, so the brand's two-tone ghost is approximated
+    /// with two runs on one row — `rec` in the dim secondary color, `all` in
+    /// the primary. That matches the hardware variant's heavier ghost.
+    private func wordmarkRow() -> FlexBox {
+        FlexBox(direction: .row, spacing: 0) {
+            Text("rec", style: .meta, color: .secondary)
+            Text("all", style: .meta)
+        }
+    }
+
+    /// The recall card: headline as the heading, lines as the body, with a
+    /// pager through the remaining lines behind "more".
+    func showRecall(headline: String, lines: [String], name: String) async {
         guard ready, let display else { return }
         generation += 1
         let gen = generation
+        pagerLines = lines
+        pagerName = name
 
-        switch kind {
-        case "recognition":
-            let name = matched.isEmpty ? "Someone you know" : matched
+        let heading =
+            headline.isEmpty
+            ? (name.isEmpty ? "Someone you've met" : name) : headline
+        let body = lines.first ?? ""
+
+        if lines.count > 1 {
             try? await display.send(
-                FlexBox(direction: .column, spacing: 12) {
-                    Text(name.uppercased(), style: .heading)
-                    Text(text, style: .body)
+                FlexBox(direction: .column, spacing: 10) {
+                    wordmarkRow()
+                    Text(heading, style: .heading)
+                    Text(body, style: .body)
                     Button(
                         label: "more", style: .primary,
                         iconName: .triangleRightVerticalLine,
                         onClick: { [weak self] in
-                            Task { @MainActor in
-                                await self?.showAskAbout(name: name, page: 0)
-                            }
+                            Task { @MainActor in await self?.showLine(page: 1) }
                         }
                     )
                 }
                 .padding(24)
                 .background(.card)
             )
-            scheduleClear(after: 8, ifStill: gen)
-
-        case "warning":  // e.g. double dose — holds until dismissed
+        } else {
             try? await display.send(
-                FlexBox(direction: .column, spacing: 12) {
-                    Text("WAIT", style: .heading)
-                    Text(text, style: .body)
-                    Button(
-                        label: "OK", style: .primary, iconName: .checkmark,
-                        onClick: { [weak self] in
-                            Task { @MainActor in await self?.clear() }
-                        }
-                    )
+                FlexBox(direction: .column, spacing: 10) {
+                    wordmarkRow()
+                    Text(heading, style: .heading)
+                    Text(body, style: .body)
                 }
                 .padding(24)
                 .background(.card)
             )
-
-        default:  // reassurance / object
-            try? await display.send(
-                FlexBox(direction: .column, spacing: 12) {
-                    Text(text, style: .body)
-                }
-                .padding(24)
-                .background(.card)
-            )
-            scheduleClear(after: 8, ifStill: gen)
         }
+        scheduleClear(after: 12, ifStill: gen)
     }
 
-    /// "more" = the person card MD distilled: page through the
-    /// "Things to ask about" bullets, one per screen.
-    func showAskAbout(name: String, page: Int) async {
+    /// No face matched — say nothing, show a quiet prompt instead.
+    func showNoMatch() async {
         guard ready, let display else { return }
-        var bullets = bulletsCache[name] ?? []
-        if bullets.isEmpty {
-            bullets = (try? await ReminiAPI.askAboutBullets(name: name)) ?? []
-            bulletsCache[name] = bullets
-        }
-        guard !bullets.isEmpty else { return }
         generation += 1
-        let count = bullets.count
+        let gen = generation
+        try? await display.send(
+            FlexBox(direction: .column, spacing: 10) {
+                wordmarkRow()
+                Text("New face — tap Listen to log the intro.", style: .body)
+            }
+            .padding(24)
+            .background(.card)
+        )
+        scheduleClear(after: 6, ifStill: gen)
+    }
+
+    /// A one-line note on the lens (ingest receipts, status).
+    func showNote(_ text: String) async {
+        guard ready, let display else { return }
+        generation += 1
+        let gen = generation
+        try? await display.send(
+            FlexBox(direction: .column, spacing: 10) {
+                wordmarkRow()
+                Text(text, style: .body)
+            }
+            .padding(24)
+            .background(.card)
+        )
+        scheduleClear(after: 8, ifStill: gen)
+    }
+
+    /// Page through the rest of the recall lines, one per screen.
+    func showLine(page: Int) async {
+        guard ready, let display, !pagerLines.isEmpty else { return }
+        generation += 1
+        let count = pagerLines.count
         let index = ((page % count) + count) % count
+        let name = pagerName
 
         try? await display.send(
-            FlexBox(direction: .column, spacing: 12) {
-                Text("ask \(name) about…", style: .meta, color: .secondary)
-                Text(bullets[index], style: .body)
+            FlexBox(direction: .column, spacing: 10) {
+                Text(
+                    name.isEmpty ? "talk about…" : "with \(name)…",
+                    style: .meta, color: .secondary
+                )
+                Text(pagerLines[index], style: .body)
                 FlexBox(direction: .row, spacing: 8) {
                     Button(
                         label: "next", style: .primary,
                         iconName: .triangleRightVerticalLine,
                         onClick: { [weak self] in
                             Task { @MainActor in
-                                await self?.showAskAbout(name: name, page: index + 1)
+                                await self?.showLine(page: index + 1)
                             }
                         }
                     )

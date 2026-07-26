@@ -7,7 +7,7 @@ enum DATBootstrap {
 }
 
 @main
-struct ReminiSenseApp: App {
+struct RecallApp: App {
     @StateObject private var glasses = GlassesManager()
     @StateObject private var speech = SpeechManager()
 
@@ -25,6 +25,7 @@ struct ReminiSenseApp: App {
             RootView()
                 .environmentObject(glasses)
                 .environmentObject(speech)
+                .preferredColorScheme(.dark)
                 .onOpenURL { url in
                     // Return leg of DAT registration via our URL scheme.
                     guard
@@ -43,24 +44,34 @@ struct ReminiSenseApp: App {
 
 struct RootView: View {
     @EnvironmentObject private var glasses: GlassesManager
-    @State private var tab: Int = 1  // land on Glance — the demo
+    @State private var tab: Int = 2  // land on Listen — the demo
 
     var body: some View {
         TabView(selection: $tab) {
             ConnectView()
                 .tabItem { Label("Connect", systemImage: "eyeglasses") }
                 .tag(0)
-            GlanceView()
-                .tabItem { Label("Glance", systemImage: "eye.fill") }
+            CaptureView()
+                .tabItem { Label("Capture", systemImage: "viewfinder") }
                 .tag(1)
-            PeopleView()
-                .tabItem { Label("People", systemImage: "person.2.fill") }
+            ListenView()
+                .tabItem { Label("Listen", systemImage: "mic.fill") }
                 .tag(2)
+            NetworkView()
+                .tabItem { Label("Network", systemImage: "person.2.fill") }
+                .tag(3)
             GuideView()
                 .tabItem { Label("Guide", systemImage: "book.fill") }
-                .tag(3)
+                .tag(4)
         }
-        .tint(Color.rsTerracotta)
-        .onAppear { glasses.configure() }
+        .tint(Color.rcAccent)
+        .onAppear {
+            glasses.configure()
+            let appearance = UITabBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor(Color.rcInk)
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
     }
 }

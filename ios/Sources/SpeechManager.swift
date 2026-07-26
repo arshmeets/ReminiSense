@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 
-/// Spoken whispers via AVSpeechSynthesizer. The audio session uses plain
+/// Speaks the recall line via AVSpeechSynthesizer. The audio session uses plain
 /// playback, so iOS routes through the glasses' speakers automatically when
 /// they are connected as the Bluetooth audio device.
 @MainActor
