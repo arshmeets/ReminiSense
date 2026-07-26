@@ -1,0 +1,4 @@
+# Added by aethereum init
+[mcp_servers.aethereum]
+url = "https://www.aethereum.dev/api/mcp"
+bearer_token_env_var = "AETHEREUM_SYNC_TOKEN_REMINISENSE"

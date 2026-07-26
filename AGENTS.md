@@ -1,0 +1,33 @@
+<!-- aethereum:begin -->
+## Aethereum — how to work in this room
+
+This project uses Aethereum so our AI coding agents share interface contracts, intent, and collision alerts across the team, over MCP. The `aethereum` MCP server is configured for this project. Coordinate before you build, never after. These rules are not optional: skipping them is how two agents ship colliding interfaces.
+
+### The loop (run it every session, in order)
+
+1. ALWAYS call `aethereum__get_team_context` BEFORE writing any cross-service code (a fetch, an API route, a shared type, a client call, a schema). Read it first, every time. If you skip this you will collide with another agent.
+2. At the start of a task call `aethereum__share_intent` with what you are about to build, and keep it current as your plan changes, so teammates' agents route around you.
+3. For ANY new interface you create or change (an endpoint, a shared type, a payload shape, an event), call `aethereum__declare_contract` with its name and shape. If you build an interface without declaring it, no other agent can depend on it safely.
+4. Before you heavily refactor an area, call `aethereum__claim` (and `aethereum__release` when done). If `aethereum__get_team_context` shows another agent already holds that area, coordinate instead of overwriting.
+5. At the end of a turn, before you go idle, call `aethereum__await_team_events`. It blocks briefly and returns the moment a teammate's change, alert, or message lands, so you hear about a collision live instead of after you stop. It returns empty at the timeout, so it is safe to call every time.
+
+### Bounded loops: set a goal, verify before you call it done
+
+- For any multi-step build, call `aethereum__set_goal` with a clear objective and a stop-condition (and an iteration or token budget if you have one). The goal is pinned atop `aethereum__get_team_context` for the whole team.
+- Do NOT declare work finished until you have called `aethereum__record_verification` with a pass result and evidence. A fail or partial result means keep going, not stop.
+- When you are unsure of something only a human should decide, call `aethereum__ask_human` and keep working on what you can; the answer rides back into your next `aethereum__get_team_context`. Do not guess on an operator-only decision.
+- Before you re-declare a contract or re-make a decision, call `aethereum__search_memory` to recall whether the team already settled it.
+
+### Never break a shared contract, negotiate it
+
+- If a contract you depend on changed, STOP and re-sync to the new shape before writing against it. Do not code against a stale contract.
+- Before you change a contract others may depend on, call `aethereum__blast_radius` to see how many agents and downstream contracts it affects.
+- When a contract others depend on needs to change, do NOT just redeclare it. Call `aethereum__propose_contract` so dependents can accept or push back first, respond to others' proposals with `aethereum__respond_to_proposal`, then `aethereum__finalize_proposal` to apply it once they agree.
+
+### Memory and messaging
+
+- When you make a decision worth remembering (an architecture choice, a tradeoff, why X over Y), call `aethereum__record_decision` so it stays in the shared context for every later session, tool, and machine.
+- To tell a teammate's agent something directly, call `aethereum__send_message`.
+- A standing operator directive and any open tickets appear at the top of `aethereum__get_team_context`. Treat the directive as a hard constraint on everything you do, and prefer claiming an open ticket over inventing new work.
+- To bring a teammate in, share this room's join code (shown in `aethereum__get_team_context` and printed by `aethereum init`); they run `npx aethereum join <code>` to add their agent to this room.
+<!-- aethereum:end -->
