@@ -11,19 +11,22 @@ impl seed_demo.go {
         name="Maya",
         relationship="daughter",
         face_notes="woman in her 30s, shoulder-length dark hair, round glasses, warm smile",
-        recent_memory="Maya just moved to San Francisco and is settling into a new apartment near the water."
+        recent_memory="Maya just moved to San Francisco and is settling into a new apartment near the water.",
+        background="Your eldest. A pediatric nurse who just relocated from Chicago to San Francisco. Loves hiking, terrible at keeping plants alive, calls every Sunday. She was there when you planted the rose garden in 1998."
     );
     leo = Person(
         name="Leo",
         relationship="grandson",
         face_notes="7-year-old boy, curly brown hair, usually in a green soccer jersey",
-        recent_memory="Leo scored his first goal at soccer practice last Saturday and hasn't stopped talking about it."
+        recent_memory="Leo scored his first goal at soccer practice last Saturday and hasn't stopped talking about it.",
+        background="Maya's boy, seven years old. Obsessed with soccer and dinosaurs, currently missing both front teeth. You taught him to whistle last Thanksgiving."
     );
     doc = Person(
         name="Dr. Okafor",
         relationship="physician",
         face_notes="tall man in his 50s, silver-rimmed glasses, often in a navy cardigan",
-        recent_memory="Dr. Okafor adjusted the morning medication two weeks ago and was pleased with the last checkup."
+        recent_memory="Dr. Okafor adjusted the morning medication two weeks ago and was pleased with the last checkup.",
+        background="Your physician for eleven years. Keeps bees on weekends and always asks about the garden. Gentle, unhurried, tells terrible puns."
     );
     here ++> maya;
     here ++> leo;
@@ -110,6 +113,7 @@ impl MemoryWeaver.weave {
     } except Exception {
         p.recent_memory = f"{p.recent_memory} Recently talked about {self.topic}.";
     }
+    p.dossier_md = "";   # card regenerates with the new encounter woven in
 }
 
 # -------------------------------------------------------- SafetySentinel --
@@ -261,6 +265,41 @@ impl enroll.go {
         here ++> HouseObject(name=self.name, usual_location=self.relationship, label_notes=self.notes);
     }
     report {"enrolled": self.name};
+}
+
+# ------------------------------------------------------------- person_card --
+# The Connection Card: a living markdown dossier rendered from the graph —
+# who this person is, your story together, what to ask them about.
+
+impl person_card.go {
+    people = [p for p in [-->(?:Person)] if p.name.lower() == self.name.lower()];
+    if len(people) == 0 {
+        report {"error": f"no person named {self.name}"};
+        disengage;
+    }
+    p = people[0];
+    if p.dossier_md != "" and not self.refresh {
+        report {"name": p.name, "md": p.dossier_md};
+        disengage;
+    }
+    encs = [f"{e.ts[0:16]} — {e.topic}" for e in [p ->:RemembersWith:->(?:Encounter)]];
+    encs = encs[::-1];
+    fam = [];
+    for kid in [p ->:FamilyOf:->(?:Person)] {
+        fam = fam + [f"{kid.name} ({kid.relationship}) is {p.name}'s family"];
+    }
+    for parent in [p <-:FamilyOf:<-(?:Person)] {
+        fam = fam + [f"{p.name} is family of {parent.name} ({parent.relationship})"];
+    }
+    md = "";
+    try {
+        md = render_person_card(p.name, p.relationship, p.background, p.recent_memory, encs, fam);
+    } except Exception {
+        lines = "\n".join(["- " + e for e in encs]) if len(encs) > 0 else "- No visits recorded yet.";
+        md = f"# {p.name}\n*Your {p.relationship}*\n\n## Who they are\n{p.background if p.background != '' else p.recent_memory}\n\n## Your story together\n{lines}\n\n## Things to ask about\n- {p.recent_memory}\n";
+    }
+    p.dossier_md = md;
+    report {"name": p.name, "md": md};
 }
 
 # --------------------------------------------------------------- get_graph --

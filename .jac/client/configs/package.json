@@ -1,0 +1,14 @@
+{
+  "name": "ReminiSense",
+  "version": "0.1.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "vite build --config .jac/client/configs/vite.config.js",
+    "dev": "vite dev --config .jac/client/configs/vite.config.js",
+    "preview": "vite preview --config .jac/client/configs/vite.config.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

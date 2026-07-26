@@ -23,6 +23,8 @@ node Person {
     has face_notes: str = "";
     has recent_memory: str = "";
     has last_seen: str = "";
+    has background: str = "";
+    has dossier_md: str = "";
 }
 
 node Encounter {
@@ -115,6 +117,11 @@ sem compose_whisper.last_encounter = "The most recent encounter today, empty if 
 def weave_memory(old_memory: str, person: str, topic: str) -> str by llm();
 sem weave_memory = "Fold a new encounter into a person's rolling 2-3 sentence memory summary, keeping the most conversation-sparking details. Plain text.";
 
+def render_person_card(name: str, relationship: str, background: str, recent_memory: str, encounters: list[str], family: list[str]) -> str by llm();
+sem render_person_card = "Write a warm one-page markdown 'Connection Card' that helps a person with early-stage Alzheimer's (or their caregiver) reconnect with someone before or during a visit. Sections: '# <Name>' with relationship subtitle; '## Who they are' (2-3 sentences of background); '## Your story together' (from encounter history, newest first); '## Things to ask about' (3 bullet conversation starters grounded in real details); '## Good to know' (gentle tips, family links). Warm, plain language, never clinical, never mentions the diagnosis.";
+sem render_person_card.encounters = "Recent encounters, newest first, formatted 'date — topic'.";
+sem render_person_card.family = "Family relationships known in the graph, e.g. 'Leo is Maya's son'.";
+
 def write_digest(events: list[str], patient: str, caregiver: str) -> str by llm();
 sem write_digest = "Write today's short warm letter (3-4 sentences) from a memory-support app to a caregiver about their parent's day: encounters, medications taken, anything to gently watch. Address the caregiver by name. Plain text, no markdown.";
 
@@ -180,6 +187,12 @@ walker :pub enroll {
     has relationship: str = "";
     has notes: str = "";
     has schedule: list = [];
+    can go with Root entry;
+}
+
+walker :pub person_card {
+    has name: str;
+    has refresh: bool = False;
     can go with Root entry;
 }
 
