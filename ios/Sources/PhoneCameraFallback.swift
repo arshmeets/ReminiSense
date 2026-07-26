@@ -2,7 +2,7 @@ import AVFoundation
 import UIKit
 
 /// One-shot rear-camera capture used when glasses aren't connected —
-/// keeps the whole glance loop working with zero hardware so the demo
+/// keeps the whole capture loop working with zero hardware so the demo
 /// never blocks.
 final class PhoneCameraFallback: NSObject, AVCapturePhotoCaptureDelegate {
     private let session = AVCaptureSession()

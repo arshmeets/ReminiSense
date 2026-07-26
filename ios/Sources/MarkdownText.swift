@@ -1,17 +1,18 @@
 import SwiftUI
 
-/// A small, warm markdown renderer for the person-card dossiers:
-/// #/##/### serif headings, "- " bullets, "---" dividers, **bold** inline.
+/// Sharp markdown renderer for contact pages:
+/// #/##/### headings, "- " bullets, "> " pull quotes, "---" dividers,
+/// **bold** and `code` inline.
 struct MarkdownText: View {
     let md: String
 
-    private enum Block: Identifiable {
+    private enum Block {
         case heading(level: Int, text: String)
         case bullet(text: String)
+        case quote(text: String)
         case divider
         case paragraph(text: String)
-
-        var id: UUID { UUID() }
+        case emphasis(text: String)
     }
 
     private var blocks: [(index: Int, block: Block)] {
@@ -27,8 +28,14 @@ struct MarkdownText: View {
                 result.append(.heading(level: 2, text: String(line.dropFirst(3))))
             } else if line.hasPrefix("# ") {
                 result.append(.heading(level: 1, text: String(line.dropFirst(2))))
+            } else if line.hasPrefix("> ") {
+                result.append(.quote(text: String(line.dropFirst(2))))
             } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
                 result.append(.bullet(text: String(line.dropFirst(2))))
+            } else if line.hasPrefix("*"), line.hasSuffix("*"), line.count > 2,
+                !line.hasPrefix("**")
+            {
+                result.append(.emphasis(text: String(line.dropFirst().dropLast())))
             } else {
                 result.append(.paragraph(text: line))
             }
@@ -37,7 +44,7 @@ struct MarkdownText: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             ForEach(blocks, id: \.index) { item in
                 blockView(item.block)
             }
@@ -48,30 +55,49 @@ struct MarkdownText: View {
     private func blockView(_ block: Block) -> some View {
         switch block {
         case let .heading(level, text):
+            if level == 1 {
+                Text(inline(text))
+                    .font(.rcDisplay(28))
+                    .foregroundStyle(Color.rcText)
+            } else {
+                SectionLabel(text)
+                    .padding(.top, 8)
+            }
+        case let .emphasis(text):
             Text(inline(text))
-                .font(.rsSerif(level == 1 ? 30 : level == 2 ? 23 : 20))
-                .foregroundStyle(level == 2 ? Color.rsTerracotta : Color.rsInk)
-                .padding(.top, level == 1 ? 0 : 8)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color.rcAccent)
+        case let .quote(text):
+            Text(inline(text))
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Color.rcText)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 12)
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.rcAccent)
+                        .frame(width: 3)
+                }
         case let .bullet(text):
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
                 Circle()
-                    .fill(Color.rsAmber)
-                    .frame(width: 7, height: 7)
+                    .fill(Color.rcAccent)
+                    .frame(width: 5, height: 5)
                     .offset(y: -2)
                 Text(inline(text))
-                    .font(.rsBody)
-                    .foregroundStyle(Color.rsInk)
+                    .font(.rcBody)
+                    .foregroundStyle(Color.rcText)
                     .fixedSize(horizontal: false, vertical: true)
             }
         case .divider:
             Rectangle()
-                .fill(Color.rsAmber.opacity(0.35))
-                .frame(height: 1.5)
-                .padding(.vertical, 6)
+                .fill(Color.rcLine)
+                .frame(height: 1)
+                .padding(.vertical, 4)
         case let .paragraph(text):
             Text(inline(text))
-                .font(.rsBody)
-                .foregroundStyle(Color.rsInk)
+                .font(.rcBody)
+                .foregroundStyle(Color.rcTextDim)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

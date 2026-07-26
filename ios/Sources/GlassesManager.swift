@@ -7,7 +7,7 @@ import UIKit
 /// Meta Wearables DAT integration: registration, one DeviceSession carrying
 /// BOTH the camera stream (frames in) and the display capability (lens cards
 /// out). Falls back to the phone's rear camera when no glasses are connected
-/// so the glance loop always works.
+/// so the capture loop always works.
 @MainActor
 final class GlassesManager: ObservableObject {
     @Published var isConnected = false
@@ -98,7 +98,7 @@ final class GlassesManager: ObservableObject {
             statusText = "Devices seen: \(deviceCount) — checking compatibility…"
             if deviceCount == 0 {
                 statusText =
-                    "Devices seen: 0 — open the Meta AI app, confirm the glasses show Connected, and check ReminiSense's Bluetooth + Local Network toggles in iOS Settings."
+                    "Devices seen: 0 — open the Meta AI app, confirm the glasses show Connected, and check Recall's Bluetooth + Local Network toggles in iOS Settings."
                 return
             }
 

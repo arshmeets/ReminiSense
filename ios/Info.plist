@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>ReminiSense</string>
+	<string>Recall</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -60,9 +60,13 @@
 		<string>_bonjour._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>ReminiSense uses the iPhone camera as a fallback when your glasses are not connected.</string>
+	<string>Recall captures one frame at a time to recognise who you're talking to — from your glasses, or the iPhone camera when they aren't connected.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Lets your phone find and talk to your glasses over Wi-Fi.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Recall listens while you hold the Listen button so it can turn an introduction into a contact in your network graph.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Recall transcribes what you capture with the Listen button so the graph can pull out names, companies and follow-ups.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>
