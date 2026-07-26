@@ -296,7 +296,7 @@ sem Matches.reason = "One short sentence explaining the selection. Under 20 word
 def pick_matches(question: str, roster: str) -> Matches by fast(temperature=0.0, max_tokens=400);
 sem pick_matches = "Answer a question about who the wearer has met by choosing from the roster. Select only people the roster actually supports - an empty list is the correct answer when nobody fits.";
 sem pick_matches.question = "A free-text question, e.g. 'who did I meet in fintech?'.";
-sem pick_matches.roster   = "Everyone known, one per line, as 'Name | org | interests | topics discussed'.";
+sem pick_matches.roster   = "Everyone known, one per line, as 'Name | role | org | interests | topics discussed | last interaction'. Any field may be empty.";
 
 
 # ------------------------------------------------------------------ walkers
@@ -1088,8 +1088,12 @@ walker:pub query {
             for t in [p -->[?:Topic]] {
                 topics.append(t.label);
             }
-            roster = roster + p.name + " | " + p.org + " | "
-                     + ", ".join(p.interests) + " | " + ", ".join(topics) + "\n";
+            # Role and last interaction go in too: a person who has been
+            # seeded or enrolled but never had a conversation ingested has no
+            # topics yet, and would otherwise be invisible to every query.
+            roster = roster + p.name + " | " + p.role + " | " + p.org + " | "
+                     + ", ".join(p.interests) + " | " + ", ".join(topics)
+                     + " | " + p.last_interaction + "\n";
             known += 1;
         }
 
@@ -1101,18 +1105,55 @@ walker:pub query {
         picked = pick_matches(self.question, roster);
 
         # Only report people the graph actually holds - the LLM chooses, it
-        # does not get to invent a contact. Dedup by node id, since the same
-        # name can legitimately appear twice in the model's answer.
+        # does not get to invent a contact. But it does occasionally mistype a
+        # name it just read ("Priva" for "Priya"), and losing a real match over
+        # one letter looks broken. So: exact, then whole-word overlap, then a
+        # single unambiguous word hit. Never a guess.
         out: list[dict] = [];
         taken: list[str] = [];
+
         for n in picked.names {
+            hit: Person | None = None;
+
             for p in [-->[?:Person]] {
-                pid = jid(p);
-                if p.name.lower() == n.lower() and pid not in taken {
+                if p.name.lower() == n.lower() {
+                    hit = p;
+                }
+            }
+            if hit is None {
+                for p in [-->[?:Person]] {
+                    if same_person(p.name, n) {
+                        hit = p;
+                    }
+                }
+            }
+            if hit is None {
+                # Share a whole word, but only when exactly one person does -
+                # two people called Sarah must never collapse into each other.
+                shared: list[str] = [];
+                for p in [-->[?:Person]] {
+                    for w in n.lower().split() {
+                        if w in p.name.lower().split() and jid(p) not in shared {
+                            shared.append(jid(p));
+                        }
+                    }
+                }
+                if len(shared) == 1 {
+                    found_one = jobj(shared[0]);
+                    if isinstance(found_one, Person) {
+                        hit = found_one;
+                    }
+                }
+            }
+
+            if hit is not None {
+                who: Person = hit;
+                pid = jid(who);
+                if pid not in taken {
                     taken.append(pid);
                     out.append({
-                        "name": p.name, "org": p.org,
-                        "last": p.last_interaction
+                        "name": who.name, "org": who.org,
+                        "last": who.last_interaction
                     });
                 }
             }
