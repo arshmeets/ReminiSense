@@ -1,0 +1,382 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		211C84A5AC64CA4E8ED93674 /* PhoneCameraFallback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 128AC2687EA3D2B1181C58F0 /* PhoneCameraFallback.swift */; };
+		3781F1C14C733A6F56D900D7 /* GuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0CC0B461EEE65BF8A3B9D9F /* GuideView.swift */; };
+		384F59BA134980B991204D03 /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = 562FDDD640F3634556302BC1 /* MWDATCamera */; };
+		3A7FC6727183075E169DD695 /* ReminiAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6D2741F3557FA049D98D6E /* ReminiAPI.swift */; };
+		5F714187A32592076FD6DE90 /* GlassesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB34EAAB25265B07367BFA1A /* GlassesManager.swift */; };
+		6D59F05F08BAD8769B491587 /* LensCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 747C677A58879B085C546D35 /* LensCards.swift */; };
+		6E8F22FDB7F67284ED18CFEF /* MWDATDisplay in Frameworks */ = {isa = PBXBuildFile; productRef = 7A62A11A56808AF7AB469278 /* MWDATDisplay */; };
+		848F30ACEAA9E43BB6C5D178 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08AB7E60491A7900F4F9DB72 /* Theme.swift */; };
+		BC8E4508F404A319FEB93952 /* SpeechManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59933DCACD37E4362D4F3E16 /* SpeechManager.swift */; };
+		C88741F40AF102EE24D9CC78 /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA397294F70905895C8C1FA /* ConnectView.swift */; };
+		E9D53227E95D915DCC7195E9 /* ReminiSenseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92D1A7AB6C7BAD0A650F91EC /* ReminiSenseApp.swift */; };
+		F4B99779C95A93878945D025 /* GlanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86676F67AE1DE2AEFE200E0E /* GlanceView.swift */; };
+		FB5A2CE764B68E4B5F7B1AF1 /* PeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4280C2FF37FE7B244B2E8E2A /* PeopleView.swift */; };
+		FDFE1DC55716C5FE0A78F894 /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 090E1E55450349B2D18D9048 /* MWDATCore */; };
+		FF867C6827140D1F4EC8537F /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDBFD02F4E93B015A81960C9 /* MarkdownText.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		08AB7E60491A7900F4F9DB72 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		128AC2687EA3D2B1181C58F0 /* PhoneCameraFallback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneCameraFallback.swift; sourceTree = "<group>"; };
+		4280C2FF37FE7B244B2E8E2A /* PeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleView.swift; sourceTree = "<group>"; };
+		59933DCACD37E4362D4F3E16 /* SpeechManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechManager.swift; sourceTree = "<group>"; };
+		747C677A58879B085C546D35 /* LensCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LensCards.swift; sourceTree = "<group>"; };
+		86676F67AE1DE2AEFE200E0E /* GlanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlanceView.swift; sourceTree = "<group>"; };
+		92D1A7AB6C7BAD0A650F91EC /* ReminiSenseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminiSenseApp.swift; sourceTree = "<group>"; };
+		9E17AF58802ACFDFBD1D38B2 /* ReminiSense.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ReminiSense.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0CC0B461EEE65BF8A3B9D9F /* GuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideView.swift; sourceTree = "<group>"; };
+		AEA397294F70905895C8C1FA /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
+		CB34EAAB25265B07367BFA1A /* GlassesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesManager.swift; sourceTree = "<group>"; };
+		CF6D2741F3557FA049D98D6E /* ReminiAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminiAPI.swift; sourceTree = "<group>"; };
+		DDBFD02F4E93B015A81960C9 /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownText.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		49B6D4B8EDF41275D457C8C3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDFE1DC55716C5FE0A78F894 /* MWDATCore in Frameworks */,
+				384F59BA134980B991204D03 /* MWDATCamera in Frameworks */,
+				6E8F22FDB7F67284ED18CFEF /* MWDATDisplay in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4E43D0C116B3E8BDD9015FFF /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				AEA397294F70905895C8C1FA /* ConnectView.swift */,
+				86676F67AE1DE2AEFE200E0E /* GlanceView.swift */,
+				CB34EAAB25265B07367BFA1A /* GlassesManager.swift */,
+				A0CC0B461EEE65BF8A3B9D9F /* GuideView.swift */,
+				747C677A58879B085C546D35 /* LensCards.swift */,
+				DDBFD02F4E93B015A81960C9 /* MarkdownText.swift */,
+				4280C2FF37FE7B244B2E8E2A /* PeopleView.swift */,
+				128AC2687EA3D2B1181C58F0 /* PhoneCameraFallback.swift */,
+				CF6D2741F3557FA049D98D6E /* ReminiAPI.swift */,
+				92D1A7AB6C7BAD0A650F91EC /* ReminiSenseApp.swift */,
+				59933DCACD37E4362D4F3E16 /* SpeechManager.swift */,
+				08AB7E60491A7900F4F9DB72 /* Theme.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		ACBD09BE9CBA1A08BA94E430 = {
+			isa = PBXGroup;
+			children = (
+				4E43D0C116B3E8BDD9015FFF /* Sources */,
+				E3867A63B0C5D2940C4998EC /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E3867A63B0C5D2940C4998EC /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9E17AF58802ACFDFBD1D38B2 /* ReminiSense.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D4EEF0CCA616DEFD9095C0BB /* ReminiSense */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3FB24A7EAF5C436F42831E4B /* Build configuration list for PBXNativeTarget "ReminiSense" */;
+			buildPhases = (
+				420C9B3CE43012CEC3C0BF9F /* Sources */,
+				49B6D4B8EDF41275D457C8C3 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ReminiSense;
+			packageProductDependencies = (
+				090E1E55450349B2D18D9048 /* MWDATCore */,
+				562FDDD640F3634556302BC1 /* MWDATCamera */,
+				7A62A11A56808AF7AB469278 /* MWDATDisplay */,
+			);
+			productName = ReminiSense;
+			productReference = 9E17AF58802ACFDFBD1D38B2 /* ReminiSense.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		19E2C1310EE29E3EB13562DE /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 240B4508E0303B6CEF2B3E43 /* Build configuration list for PBXProject "ReminiSense" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = ACBD09BE9CBA1A08BA94E430;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BC63B7F578DE2CC3C0A5EE26 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E3867A63B0C5D2940C4998EC /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D4EEF0CCA616DEFD9095C0BB /* ReminiSense */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		420C9B3CE43012CEC3C0BF9F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C88741F40AF102EE24D9CC78 /* ConnectView.swift in Sources */,
+				F4B99779C95A93878945D025 /* GlanceView.swift in Sources */,
+				5F714187A32592076FD6DE90 /* GlassesManager.swift in Sources */,
+				3781F1C14C733A6F56D900D7 /* GuideView.swift in Sources */,
+				6D59F05F08BAD8769B491587 /* LensCards.swift in Sources */,
+				FF867C6827140D1F4EC8537F /* MarkdownText.swift in Sources */,
+				FB5A2CE764B68E4B5F7B1AF1 /* PeopleView.swift in Sources */,
+				211C84A5AC64CA4E8ED93674 /* PhoneCameraFallback.swift in Sources */,
+				3A7FC6727183075E169DD695 /* ReminiAPI.swift in Sources */,
+				E9D53227E95D915DCC7195E9 /* ReminiSenseApp.swift in Sources */,
+				BC8E4508F404A319FEB93952 /* SpeechManager.swift in Sources */,
+				848F30ACEAA9E43BB6C5D178 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0351CDA80E36E5263C444B50 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ReminiSense.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.reminisense.app;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		43B380A9463B2050F5507CF6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A028ECBBA003997679B8D83A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = ReminiSense.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.reminisense.app;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A6524FC423A5EDBC9FCF9E9F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		240B4508E0303B6CEF2B3E43 /* Build configuration list for PBXProject "ReminiSense" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A6524FC423A5EDBC9FCF9E9F /* Debug */,
+				43B380A9463B2050F5507CF6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		3FB24A7EAF5C436F42831E4B /* Build configuration list for PBXNativeTarget "ReminiSense" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A028ECBBA003997679B8D83A /* Debug */,
+				0351CDA80E36E5263C444B50 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BC63B7F578DE2CC3C0A5EE26 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 0.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		090E1E55450349B2D18D9048 /* MWDATCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BC63B7F578DE2CC3C0A5EE26 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCore;
+		};
+		562FDDD640F3634556302BC1 /* MWDATCamera */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BC63B7F578DE2CC3C0A5EE26 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCamera;
+		};
+		7A62A11A56808AF7AB469278 /* MWDATDisplay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BC63B7F578DE2CC3C0A5EE26 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATDisplay;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 19E2C1310EE29E3EB13562DE /* Project object */;
+}

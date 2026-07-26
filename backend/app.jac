@@ -785,6 +785,125 @@ walker:pub recall {
 }
 
 
+# ------------------------------------------------------------- iOS contract
+# The iOS client calls these names. They are thin adapters over the walkers
+# above so the app and the graph can evolve independently.
+
+walker:pub glance {
+    """What the glasses call on every look. Same work as Recognize, shaped the
+    way the lens renderer wants it: {whisper:{text,kind,confidence}, matched}."""
+
+    has image_b64: str,
+        source: str = "glasses",
+        reports: list[dict] = [];
+
+    can look with Root entry {
+        probe = embed_face(self.image_b64);
+
+        best_score: float = 0.0;
+        best_jid: str = "";
+        for p in [-->[?:Person]] {
+            sim = cosine(probe, p.face_vec);
+            weight: float = 1.0;
+            links = [edge p <-:Knows:<-];
+            if len(links) > 0 {
+                weight = 1.0 + (0.15 * links[0].closeness) + (0.10 * links[0].recency);
+            }
+            scored = sim * weight;
+            if scored > best_score {
+                best_score = scored;
+                best_jid = jid(p);
+            }
+        }
+
+        # No confident match: the lens shows a neutral line and the graph is
+        # left untouched. Strangers are never recorded. jobj() must not be
+        # reached with an empty jid - it raises rather than returning None.
+        if best_jid == "" or best_score < FACE_THRESHOLD {
+            report {
+                "whisper": {"text": "", "kind": "reassurance", "confidence": round(best_score, 3)},
+                "matched": ""
+            };
+            return;
+        }
+
+        found = jobj(best_jid);
+        if not isinstance(found, Person) {
+            report {
+                "whisper": {"text": "", "kind": "reassurance", "confidence": round(best_score, 3)},
+                "matched": ""
+            };
+            return;
+        }
+        who: Person = found;
+
+        history: str = "";
+        for e in [who -->[?:Interaction]][-3:] {
+            history = history + e.summary + "; ";
+        }
+
+        said = compose(
+            who.name, who.role, who.org,
+            who.relationship, who.last_interaction, who.notes, history
+        );
+
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S");
+        who +>:Had(at=stamp):+> Interaction(
+            timestamp=stamp,
+            kind="sighting",
+            summary=f"Seen through the {self.source}; whispered: {said.line}"
+        );
+
+        report {
+            "whisper": {
+                "text": said.line,
+                "kind": "recognition",
+                "confidence": round(best_score, 3)
+            },
+            "matched": who.name
+        };
+    }
+}
+
+
+# Lower-case alias - the iOS client calls /walker/enroll.
+walker:pub enroll(Enroll) {}
+
+
+# Alias for the iOS client and dashboard.
+walker:pub seed_demo(Seed) {}
+
+
+# Alias for the iOS client and dashboard.
+walker:pub reset_day(Reset) {}
+
+
+walker:pub forget {
+    """Right to be forgotten: remove a person, their interactions, and their
+    topics in one walk."""
+
+    has name: str,
+        reports: list[dict] = [];
+
+    can erase with Root entry {
+        gone: int = 0;
+        for p in [-->[?:Person]] {
+            if same_person(p.name, self.name) or self.name.strip().lower() in p.name.lower() {
+                for e in [p -->[?:Interaction]] {
+                    del e;
+                }
+                for t in [p -->[?:Topic]] {
+                    del t;
+                }
+                del p;
+                gone += 1;
+            }
+        }
+        report {"forgotten": gone, "name": self.name};
+    }
+}
+
+
 # --------------------------------------------------------------- dashboard
 # The pitch calls for putting the graph on screen, so these serve the web view
 # directly in the shape d3 wants: {nodes, links} and a flat event list.
@@ -892,6 +1011,10 @@ walker:pub person_card {
             md = md + "*" + who.org + "*\n\n";
         }
         md = md + "> " + card.headline + "\n\n";
+
+        # The lens "more" pager reads the bullets under this exact heading -
+        # renaming it silently empties that screen on the glasses.
+        md = md + "## Things to ask about\n";
         for l in card.lines {
             md = md + "- " + l + "\n";
         }
@@ -908,7 +1031,7 @@ walker:pub person_card {
             md = md + "\n## History\n" + "\n".join(past) + "\n";
         }
 
-        report {"md": md};
+        report {"name": who.name, "md": md};
     }
 }
 
