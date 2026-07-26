@@ -6,6 +6,10 @@
 #   ./demo.sh roster                 show what is in the graph
 #   ./demo.sh enroll <name> <img>    enrol a face from a photo
 #   ./demo.sh look <img>             recognise a frame, print the spoken line
+#   ./demo.sh caption <text> [lang]  clean/translate speech for the display
+#   ./demo.sh hear <transcript>      log a conversation into the graph
+#   ./demo.sh who <name|last>        recall card for a person
+#   ./demo.sh ask <question>         free-text query over everyone met
 #
 # HOST defaults to localhost; override to hit the Mac from another machine:
 #   HOST=10.0.0.5 ./demo.sh look frame.jpg
@@ -64,6 +68,25 @@ print(json.dumps({'name':sys.argv[1],'frame_b64':sys.argv[2],
     img="${2:?usage: ./demo.sh look <image>}"
     "$PY" -c "import json,sys;print(json.dumps({'frame_b64':sys.argv[1]}))" "$(b64 "$img")" > /tmp/rs_look.json
     post Recognize /tmp/rs_look.json | reports
+    ;;
+  caption)
+    txt="${2:?usage: ./demo.sh caption <text> [lang]}"
+    "$PY" -c "import json,sys;print(json.dumps({'text':sys.argv[1],'lang':sys.argv[2]}))" "$txt" "${3:-en}" > /tmp/rs_cap.json
+    post caption /tmp/rs_cap.json | reports
+    ;;
+  hear)
+    txt="${2:?usage: ./demo.sh hear <transcript>}"
+    "$PY" -c "import json,sys;print(json.dumps({'transcript':sys.argv[1]}))" "$txt" > /tmp/rs_hear.json
+    post ingest /tmp/rs_hear.json | reports
+    ;;
+  who)
+    "$PY" -c "import json,sys;print(json.dumps({'name':sys.argv[1]}))" "${2:-last}" > /tmp/rs_who.json
+    post recall /tmp/rs_who.json | reports
+    ;;
+  ask)
+    q="${2:?usage: ./demo.sh ask <question>}"
+    "$PY" -c "import json,sys;print(json.dumps({'question':sys.argv[1]}))" "$q" > /tmp/rs_ask.json
+    post query /tmp/rs_ask.json | reports
     ;;
   *)
     sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
