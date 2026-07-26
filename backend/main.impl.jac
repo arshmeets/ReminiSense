@@ -177,7 +177,30 @@ impl glance.go {
     }
 
     if scene.kind == "face" {
-        m = here spawn Matcher(traits=scene.traits);
+        # Tier 1: local SFace embedding match — fast, deterministic, offline
+        matched_via = "";
+        face_name = "";
+        face_conf = 0.0;
+        emb = faces.embed_face(self.image_b64);
+        if len(emb) > 0 {
+            for p in [-->(?:Person)] {
+                if len(p.face_embedding) > 0 {
+                    sim = faces.cosine(emb, p.face_embedding);
+                    if sim >= 0.363 and sim > face_conf {
+                        face_conf = sim;
+                        face_name = p.name;
+                    }
+                }
+            }
+        }
+        if face_name != "" {
+            m = Matcher(traits=[], matched_name=face_name, matched_conf=face_conf);
+            matched_via = "face_embedding";
+        } else {
+            # Tier 2: LLM descriptive matching over enrolled face notes
+            m = here spawn Matcher(traits=scene.traits);
+            matched_via = "description";
+        }
         if m.matched_name == "" {
             report {"whisper": {"text": "Someone friendly is coming over to say hello.", "kind": "reassurance", "confidence": m.matched_conf}, "matched": "", "scene": {"kind": scene.kind, "traits": scene.traits}};
             disengage;
@@ -192,7 +215,7 @@ impl glance.go {
             w = fallback_whisper(person.name, person.relationship, person.recent_memory, last_enc);
         }
         here spawn MemoryWeaver(person_name=person.name, topic="today's visit", whisper_text=w.text);
-        report {"whisper": {"text": w.text, "kind": w.kind, "confidence": m.matched_conf}, "matched": person.name, "scene": {"kind": scene.kind, "traits": scene.traits}};
+        report {"whisper": {"text": w.text, "kind": w.kind, "confidence": m.matched_conf}, "matched": person.name, "matched_via": matched_via, "scene": {"kind": scene.kind, "traits": scene.traits}};
         disengage;
     }
 
@@ -266,7 +289,8 @@ impl glance_cached.go {
 
 impl enroll.go {
     if self.kind == "person" {
-        here ++> Person(name=self.name, relationship=self.relationship, face_notes=self.notes);
+        emb = faces.embed_face(self.photo_b64) if self.photo_b64 != "" else [];
+        here ++> Person(name=self.name, relationship=self.relationship, face_notes=self.notes, face_embedding=emb);
     } elif self.kind == "medication" {
         here ++> Medication(name=self.name, dosage=self.relationship, schedule_times=self.schedule, label_notes=self.notes);
     } else {

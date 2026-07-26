@@ -3,12 +3,14 @@
 ReminiSense handles the most intimate data imaginable — a person's memory.
 These guardrails are engineered in, not policy promises.
 
-## 1. No biometrics, ever
-We never compute or store face embeddings, face templates, or any biometric
-identifier. Recognition works from **plain-language descriptive notes**
-("shoulder-length dark hair, round glasses") written at enrollment with the
-family's consent. Delete the note and nothing about the face remains.
-There is no face database to breach.
+## 1. Biometrics stay home, and only with consent
+Face embeddings (128 floats, SFace) are computed **only at deliberate
+enrollment by a family member** and live exclusively inside that user's
+private graph — they are never sent to any cloud model (matching is local
+cosine similarity), never shared, and `forget` deletes them with the person.
+Strangers are never embedded: an unrecognized face produces a generic whisper
+and stores nothing. A second tier of plain-language descriptive notes means
+families can also opt out of embeddings entirely and still get recognition.
 
 ## 2. Frames are ephemeral
 Camera frames are processed in memory, written only to a temp file for the

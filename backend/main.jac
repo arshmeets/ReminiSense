@@ -10,6 +10,7 @@ and the next whisper remembers it.
 
 import os;
 import vision;
+import faces;
 import from datetime { datetime }
 import from byllm.lib { Model, Image }
 
@@ -25,6 +26,7 @@ node Person {
     has last_seen: str = "";
     has background: str = "";
     has dossier_md: str = "";
+    has face_embedding: list = [];
 }
 
 node Encounter {
@@ -190,6 +192,7 @@ walker :pub enroll {
     has relationship: str = "";
     has notes: str = "";
     has schedule: list = [];
+    has photo_b64: str = "";
     can go with Root entry;
 }
 
