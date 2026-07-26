@@ -1,0 +1,6 @@
+.jac/
+jac.local.toml
+
+# local secrets - never commit
+.env
+.env.local

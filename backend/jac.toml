@@ -1,0 +1,21 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Headless Jac API service (server walkers, no client)"
+entry-point = "app.jac"
+kind = "service"
+jac-version = "==0.34.7"
+
+[byllm.model]
+default_model = "claude-sonnet-4-6"
+api_key = "${ANTHROPIC_API_KEY}"
+
+[byllm.call_params]
+temperature = 0.0
+
+[dependencies]
+opencv-python = "~=5.0"
+numpy = "~=2.5"
+
+[dev-dependencies]
+watchdog = ">=3.0.0"
