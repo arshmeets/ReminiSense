@@ -99,9 +99,17 @@ impl MemoryWeaver.weave {
     if len(priors) > 0 {
         self.prior_encounter = priors[-1].topic;
     }
+    # persona filter: only a sanitized summary ever enters the graph —
+    # raw conversation content is never stored
+    safe_topic = self.topic;
+    try {
+        safe_topic = sanitize_summary(self.topic);
+    } except Exception {
+        safe_topic = vision.strip_sensitive(self.topic);
+    }
     enc = Encounter(
         ts=now_iso(),
-        topic=self.topic,
+        topic=safe_topic,
         whisper_given=self.whisper_text,
         person_name=p.name
     );

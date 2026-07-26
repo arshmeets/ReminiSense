@@ -20,3 +20,21 @@ def cleanup(path: str) -> None:
         os.unlink(path)
     except OSError:
         pass
+
+
+import re as _re
+
+_SENSITIVE = _re.compile(
+    r"(\$\s?\d[\d,\.]*|\b\d{3}[- ]?\d{2}[- ]?\d{4}\b|\b(?:\d[ -]?){13,19}\b|"
+    r"\b(password|ssn|account|routing|diagnos\w+|cancer|debt|divorce|lawsuit)\b[^,.;]*)",
+    _re.IGNORECASE,
+)
+
+
+def strip_sensitive(text: str) -> str:
+    """Deterministic fallback persona filter: drop clauses with sensitive markers."""
+    out = _SENSITIVE.sub("", text)
+    out = _re.sub(r"[,\s]*\d[\d,\.]*", "", out)          # orphaned number fragments
+    out = _re.sub(r"\s+(and|or|about)\s*$", "", out.strip(" ,;-"))
+    out = _re.sub(r"\s{2,}", " ", out).strip(" ,;-")
+    return out or "a nice visit"

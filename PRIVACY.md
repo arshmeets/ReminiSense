@@ -37,7 +37,15 @@ say "you forgot." The safety-critical path (double-dose prevention) is
 **deterministic graph logic — no LLM in the loop** — so medication
 decisions are auditable line by line.
 
-## 7. Caregiver transparency, not surveillance
+## 7. Persona filter — summaries only, at write time
+Every encounter passes through a sanitization layer BEFORE it touches the
+graph: a typed `sanitize_summary` LLM filter (with a deterministic regex
+fallback) strips third-party medical details, finances, credentials,
+addresses, and anything embarrassing. Only a warm neutral summary is
+stored — raw conversation content never enters the memory graph, so it
+can never leak from it.
+
+## 8. Caregiver transparency, not surveillance
 Maya sees a daily digest letter and medication adherence — not a camera
 feed, not a location trail, not raw transcripts. Alerts fire only for
 safety events (a prevented double dose).

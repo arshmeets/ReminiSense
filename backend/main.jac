@@ -122,6 +122,9 @@ sem render_person_card = "Write a warm one-page markdown 'Connection Card' that 
 sem render_person_card.encounters = "Recent encounters, newest first, formatted 'date — topic'.";
 sem render_person_card.family = "Family relationships known in the graph, e.g. 'Leo is Maya's son'.";
 
+def sanitize_summary(text: str) -> str by llm();
+sem sanitize_summary = "Privacy filter for a memory-support app. Rewrite a conversation topic/summary keeping only warm, neutral, conversation-safe content. REMOVE entirely: third parties' medical details, finances/money amounts, credentials/numbers, exact addresses, conflicts or anything embarrassing. Return the safe summary only, under 20 words. If nothing safe remains, return 'a nice visit'.";
+
 def write_digest(events: list[str], patient: str, caregiver: str) -> str by llm();
 sem write_digest = "Write today's short warm letter (3-4 sentences) from a memory-support app to a caregiver about their parent's day: encounters, medications taken, anything to gently watch. Address the caregiver by name. Plain text, no markdown.";
 
