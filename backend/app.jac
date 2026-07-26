@@ -515,45 +515,82 @@ walker:pub Reset {
 
 
 walker:pub Seed {
-    """Populate the demo graph. Faces are enrolled separately, on-site, via
-    the Enroll walker - seeded people start face-less on purpose."""
+    """Populate the demo graph. Idempotent on purpose - a demo button that
+    forks every person when pressed twice is a demo that breaks on stage.
+    Faces are enrolled separately, on-site, via the Enroll walker."""
 
     has reports: list[dict] = [];
 
     can build with Root entry {
-        here +>:Knows(closeness=0.9, recency=0.9):+> Person(
-            name="Sarah Chen", role="VP Product", org="Acme",
-            relationship="met at the Series A demo day",
-            last_interaction="talked through their Series B raise",
-            notes="still has an open question about our pricing tiers"
-        );
+        added: list[str] = [];
 
-        here +>:Knows(closeness=0.6, recency=0.4):+> Person(
-            name="Marcus Webb", role="Engineering Lead", org="Northwind",
-            relationship="former colleague",
-            last_interaction="promised to send the migration write-up",
-            notes="allergic to shellfish; do not suggest the oyster bar"
-        );
+        # (name, role, org, relationship, last_interaction, notes, closeness, recency)
+        people: list[dict] = [
+            {
+                "name": "Sarah Chen", "role": "VP Product", "org": "Acme",
+                "rel": "met at the Series A demo day",
+                "last": "talked through their Series B raise",
+                "notes": "still has an open question about our pricing tiers",
+                "close": 0.9, "rec": 0.9
+            },
+            {
+                "name": "Marcus Webb", "role": "Engineering Lead", "org": "Northwind",
+                "rel": "former colleague",
+                "last": "promised to send the migration write-up",
+                "notes": "allergic to shellfish; do not suggest the oyster bar",
+                "close": 0.6, "rec": 0.4
+            },
+            {
+                "name": "Priya Raman", "role": "Partner", "org": "Fieldstone Capital",
+                "rel": "introduced by Sarah",
+                "last": "brief hallway chat about the seed round",
+                "notes": "asked to be pinged once the metrics deck is ready",
+                "close": 0.3, "rec": 0.2
+            }
+        ];
 
-        here +>:Knows(closeness=0.3, recency=0.2):+> Person(
-            name="Priya Raman", role="Partner", org="Fieldstone Capital",
-            relationship="introduced by Sarah",
-            last_interaction="brief hallway chat about the seed round",
-            notes="asked to be pinged once the metrics deck is ready"
-        );
+        for spec in people {
+            known: bool = False;
+            for existing in [-->[?:Person]] {
+                if existing.name.lower() == spec["name"].lower() {
+                    known = True;
+                }
+            }
+            if not known {
+                here +>:Knows(closeness=spec["close"], recency=spec["rec"]):+> Person(
+                    name=spec["name"], role=spec["role"], org=spec["org"],
+                    relationship=spec["rel"], last_interaction=spec["last"],
+                    notes=spec["notes"]
+                );
+                added.append(spec["name"]);
+            }
+        }
 
-        here +>:Holds(closeness=0.8, recency=0.9):+> Thing(
-            name="keys", category="everyday carry",
-            context="usually left on the kitchen counter"
-        );
+        things: list[dict] = [
+            {"name": "keys", "cat": "everyday carry",
+             "ctx": "usually left on the kitchen counter", "close": 0.8, "rec": 0.9},
+            {"name": "blue inhaler", "cat": "medication",
+             "ctx": "two puffs, morning and night", "close": 0.7, "rec": 0.5}
+        ];
 
-        here +>:Holds(closeness=0.7, recency=0.5):+> Thing(
-            name="blue inhaler", category="medication",
-            context="two puffs, morning and night"
-        );
+        for tspec in things {
+            seen_thing: bool = False;
+            for et in [-->[?:Thing]] {
+                if et.name.lower() == tspec["name"].lower() {
+                    seen_thing = True;
+                }
+            }
+            if not seen_thing {
+                here +>:Holds(closeness=tspec["close"], recency=tspec["rec"]):+> Thing(
+                    name=tspec["name"], category=tspec["cat"], context=tspec["ctx"]
+                );
+                added.append(tspec["name"]);
+            }
+        }
 
         report {
             "seeded": True,
+            "added": added,
             "people": len([-->[?:Person]]),
             "things": len([-->[?:Thing]])
         };
@@ -1064,11 +1101,15 @@ walker:pub query {
         picked = pick_matches(self.question, roster);
 
         # Only report people the graph actually holds - the LLM chooses, it
-        # does not get to invent a contact.
+        # does not get to invent a contact. Dedup by node id, since the same
+        # name can legitimately appear twice in the model's answer.
         out: list[dict] = [];
+        taken: list[str] = [];
         for n in picked.names {
             for p in [-->[?:Person]] {
-                if p.name.lower() == n.lower() {
+                pid = jid(p);
+                if p.name.lower() == n.lower() and pid not in taken {
+                    taken.append(pid);
                     out.append({
                         "name": p.name, "org": p.org,
                         "last": p.last_interaction
