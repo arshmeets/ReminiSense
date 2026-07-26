@@ -32,7 +32,7 @@
 		747C677A58879B085C546D35 /* LensCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LensCards.swift; sourceTree = "<group>"; };
 		86676F67AE1DE2AEFE200E0E /* GlanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlanceView.swift; sourceTree = "<group>"; };
 		92D1A7AB6C7BAD0A650F91EC /* ReminiSenseApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminiSenseApp.swift; sourceTree = "<group>"; };
-		9E17AF58802ACFDFBD1D38B2 /* ReminiSense.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ReminiSense.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9E17AF58802ACFDFBD1D38B2 /* ReminiSense.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ReminiSense.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A0CC0B461EEE65BF8A3B9D9F /* GuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideView.swift; sourceTree = "<group>"; };
 		AEA397294F70905895C8C1FA /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
 		CB34EAAB25265B07367BFA1A /* GlassesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesManager.swift; sourceTree = "<group>"; };
@@ -122,6 +122,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					D4EEF0CCA616DEFD9095C0BB = {
+						ProvisioningStyle = Automatic;
+					};
 				};
 			};
 			buildConfigurationList = 240B4508E0303B6CEF2B3E43 /* Build configuration list for PBXProject "ReminiSense" */;
@@ -175,6 +178,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = ReminiSense.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6TMMQ8VD2T;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -250,6 +255,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = ReminiSense.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6TMMQ8VD2T;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
