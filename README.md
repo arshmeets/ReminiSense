@@ -7,6 +7,15 @@ An AI memory layer for real life. You meet a dozen people in an hour and forget
 most of it — names, who they work for, what you promised to send. Recall
 listens, remembers, and reminds you.
 
+
+## Repos
+
+| | |
+|---|---|
+| **this repo** | the Jac backend (graph, walkers, `by llm()` reasoning) + the live web dashboard |
+| **[recall-glasses](https://github.com/arshmeets/recall-glasses)** | the iOS companion for Meta Ray-Ban Display — capture, lens cards, Neural Band. A thin client: it moves pixels in and text out, all product logic lives in Jac here. |
+
+
 Speech becomes a knowledge graph. A face becomes a lookup into it.
 
 > *"Arshmeet's been focused on neural interface and gesture recognition — ask about memory recall integration."*
