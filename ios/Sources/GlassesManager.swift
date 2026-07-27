@@ -1,8 +1,17 @@
+import AVFoundation
 import Foundation
 import MWDATCamera
 import MWDATCore
 import MWDATDisplay
 import UIKit
+
+extension DateFormatter {
+    static let lensLog: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
+    }()
+}
 
 /// Meta Wearables DAT integration: registration, one DeviceSession carrying
 /// BOTH the camera stream (frames in) and the display capability (lens cards
@@ -15,6 +24,9 @@ final class GlassesManager: ObservableObject {
     @Published var statusText = "Glasses: not connected" {
         didSet { print("[reminisense] \(statusText)") }
     }
+    /// Every DisplayState transition, newest last. Shown verbatim in Connect so
+    /// "nothing appeared on the lens" is answerable instead of a guess.
+    @Published var displayLog: [String] = []
 
     private var session: DeviceSession?
     private var selector: AutoDeviceSelector?
@@ -192,24 +204,53 @@ final class GlassesManager: ObservableObject {
     private func attachDisplay(session: DeviceSession) {
         do {
             let display = try session.addDisplay()
+            // Hand the display over BEFORE start() so the very first
+            // DisplayState.started already has somewhere to land.
+            self.display = display
+            ReminiCards.shared.display = display
+            log("display attached (state: \(display.state))")
             tokens.append(
                 display.statePublisher.listen { [weak self] state in
                     Task { @MainActor in
+                        guard let self else { return }
                         let ready = (state == .started)
                         ReminiCards.shared.ready = ready
-                        self?.displayReady = ready
+                        self.displayReady = ready
+                        self.log("DisplayState → \(state)")
                         if ready {
-                            self?.statusText = "Glasses: connected — lens display ready"
+                            self.statusText = "Glasses: connected — lens display ready"
+                        } else {
+                            self.statusText =
+                                "Glasses: connected — lens display is \(state), cards will NOT show yet"
                         }
                     }
                 }
             )
             display.start()
-            self.display = display
-            ReminiCards.shared.display = display
+            log("display.start() called")
+            // start() is synchronous on 0.8 but the state event can race the
+            // listener registration — read the state directly as a backstop.
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(800))
+                guard let self, let display = self.display else { return }
+                let ready = (display.state == .started)
+                if ready != self.displayReady {
+                    ReminiCards.shared.ready = ready
+                    self.displayReady = ready
+                    self.log("polled DisplayState → \(display.state)")
+                }
+            }
         } catch {
+            log("addDisplay failed: \(error.localizedDescription)")
             statusText = "Glasses connected, but the display didn't attach: \(error.localizedDescription)"
         }
+    }
+
+    private func log(_ line: String) {
+        let stamp = DateFormatter.lensLog.string(from: Date())
+        displayLog.append("\(stamp)  \(line)")
+        if displayLog.count > 40 { displayLog.removeFirst(displayLog.count - 40) }
+        print("[reminisense/lens] \(line)")
     }
 
     private func wearablesDeviceSummary() -> String {
@@ -222,7 +263,13 @@ final class GlassesManager: ObservableObject {
         return parts.isEmpty ? "(no devices visible)" : parts.joined(separator: " · ")
     }
 
+    /// Releases the phone camera when the capture loop is idle.
+    func releasePhoneCamera() {
+        phoneFallback.stop()
+    }
+
     func disconnect() {
+        log("disconnect requested")
         display?.stop()
         display = nil
         ReminiCards.shared.display = nil
@@ -240,6 +287,11 @@ final class GlassesManager: ObservableObject {
     /// Photo from the glasses camera when connected; phone camera when the
     /// fallback toggle is on or no glasses are available.
     func capturePhoto() async -> UIImage? {
+        defer {
+            // A capture can nudge the audio route; re-assert (never deactivate)
+            // so live transcription survives taking a photo.
+            AudioSessionController.shared.reassert()
+        }
         guard isConnected, !forcePhoneCamera, let session else {
             return await phoneFallback.capture()
         }

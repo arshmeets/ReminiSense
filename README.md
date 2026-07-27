@@ -1,7 +1,10 @@
-# ReminiSense
+# recall
+
+**your network, remembered** — an AI networking memory for founders and investors.
+Built at JacHacks SF 2026 · track: **Fintech / Open**
 
 An AI memory layer for real life. You meet a dozen people in an hour and forget
-most of it — names, who they work for, what you promised to send. ReminiSense
+most of it — names, who they work for, what you promised to send. Recall
 listens, remembers, and reminds you.
 
 Speech becomes a knowledge graph. A face becomes a lookup into it.
@@ -17,7 +20,7 @@ Built at JacHacks SF on Jac + Jaseci.
 
 ## The two halves
 
-Most of this kind of product picks one input. ReminiSense uses both, and they
+Most of this kind of product picks one input. Recall uses both, and they
 meet on the same node:
 
 ```

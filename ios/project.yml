@@ -39,13 +39,15 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSCameraUsageDescription: Recall captures one frame at a time to recognise who you're talking to — from your glasses, or the iPhone camera when they aren't connected.
-        NSMicrophoneUsageDescription: Recall listens while you hold the Listen button so it can turn an introduction into a contact in your network graph.
-        NSSpeechRecognitionUsageDescription: Recall transcribes what you capture with the Listen button so the graph can pull out names, companies and follow-ups.
+        NSMicrophoneUsageDescription: Recall listens for a few seconds after you tap Meet (or while you hold Listen) so it can turn an introduction into a contact in your network graph.
+        NSSpeechRecognitionUsageDescription: Recall transcribes those few seconds on your phone so the graph can pull out names, companies and follow-ups.
         NSBluetoothAlwaysUsageDescription: Needed to connect to your Meta Ray-Ban Display glasses.
         NSLocalNetworkUsageDescription: Lets your phone find and talk to your glasses over Wi-Fi.
         NSBonjourServices: [_bonjour._tcp]
         UISupportedExternalAccessoryProtocols: [com.meta.ar.wearable]
-        UIBackgroundModes: [processing, bluetooth-central, bluetooth-peripheral, external-accessory]
+        # `audio` keeps the shared AVAudioSession (and therefore live
+        # transcription) alive across a hop into the Meta AI app mid-demo.
+        UIBackgroundModes: [audio, processing, bluetooth-central, bluetooth-peripheral, external-accessory]
         LSApplicationQueriesSchemes: [fb-viewapp]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true

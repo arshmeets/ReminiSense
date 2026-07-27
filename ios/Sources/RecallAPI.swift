@@ -49,6 +49,33 @@ struct RecallCard: Identifiable {
     }
 }
 
+/// The result of POST /walker/Enroll, without throwing.
+///
+/// The backend answers a frame with no detectable face with
+/// `{"enrolled": false, "reason": "no face detected in the reference photo"}`
+/// (verified against the live API), which is guidance rather than an error —
+/// so auto-enroll can show it as "get a bit closer" instead of a red banner.
+struct EnrollOutcome {
+    let enrolled: Bool
+    let name: String
+    /// True when the face was attached to a Person the graph already had —
+    /// i.e. the conversation ingest just created.
+    let attachedToExisting: Bool
+    let knownInteractions: Int
+    let reason: String
+
+    var noFaceDetected: Bool {
+        !enrolled && reason.lowercased().contains("no face")
+    }
+
+    var friendlyReason: String {
+        if noFaceDetected {
+            return "Couldn't find a face in that frame — get a little closer, hold steady, and make sure they're lit."
+        }
+        return reason.isEmpty ? "Enrollment failed." : reason
+    }
+}
+
 /// What /walker/ingest pulled out of a conversation.
 struct IngestReceipt: Identifiable {
     let id = UUID()
@@ -231,10 +258,16 @@ enum RecallAPI {
     }
 
     /// Feed a conversation transcript into the graph.
-    static func ingest(transcript: String) async throws -> IngestReceipt {
-        let payload = try await post(
-            "/walker/ingest", ["transcript": transcript], timeout: 120
-        )
+    ///
+    /// `speaker` pins the conversation onto a person we already identified by
+    /// face — the backend prefers it over any name the extractor thinks it
+    /// heard, which stops "Sarah" in the transcript creating a second node.
+    static func ingest(
+        transcript: String, speaker: String = ""
+    ) async throws -> IngestReceipt {
+        var body: [String: Any] = ["transcript": transcript]
+        if !speaker.isEmpty { body["speaker"] = speaker }
+        let payload = try await post("/walker/ingest", body, timeout: 120)
         return IngestReceipt(
             saved: str(payload["saved"]),
             newPerson: (payload["new_person"] as? Bool) ?? false,
@@ -301,15 +334,18 @@ enum RecallAPI {
     }
 
     /// Attach a face to a person — creates them if they aren't in the graph.
-    @discardableResult
-    static func enroll(
+    ///
+    /// Returns the outcome rather than throwing on `enrolled: false`, because
+    /// "no face detected" is guidance the UI should show gently. Network and
+    /// server failures still throw.
+    static func enrollOutcome(
         name: String,
-        role: String,
-        org: String,
-        relationship: String,
-        notes: String = "",
-        photoJpeg: Data
-    ) async throws -> String {
+        photoJpeg: Data,
+        role: String = "",
+        org: String = "",
+        relationship: String = "",
+        notes: String = ""
+    ) async throws -> EnrollOutcome {
         let payload = try await post(
             "/walker/Enroll",
             [
@@ -322,16 +358,64 @@ enum RecallAPI {
             ],
             timeout: 120
         )
-        if (payload["enrolled"] as? Bool) == true {
-            let attached = (payload["attached_to_existing"] as? Bool) ?? false
-            return attached
-                ? "Face attached to \(str(payload["name"]))'s existing record."
-                : "\(str(payload["name"])) added to your network."
-        }
-        let reason = str(payload["reason"])
-        throw APIError.backend(
-            message: reason.isEmpty ? "Enrollment failed." : reason.capitalizedFirst
+        return EnrollOutcome(
+            enrolled: (payload["enrolled"] as? Bool) ?? false,
+            name: str(payload["name"]).isEmpty ? name : str(payload["name"]),
+            attachedToExisting: (payload["attached_to_existing"] as? Bool) ?? false,
+            knownInteractions: (payload["known_interactions"] as? NSNumber)?.intValue ?? 0,
+            reason: str(payload["reason"])
         )
+    }
+
+    /// Throwing wrapper kept for the manual Enroll sheet, where a failure is a
+    /// genuine error the form should show.
+    @discardableResult
+    static func enroll(
+        name: String,
+        role: String,
+        org: String,
+        relationship: String,
+        notes: String = "",
+        photoJpeg: Data
+    ) async throws -> String {
+        let outcome = try await enrollOutcome(
+            name: name, photoJpeg: photoJpeg, role: role, org: org,
+            relationship: relationship, notes: notes
+        )
+        guard outcome.enrolled else {
+            throw APIError.backend(message: outcome.friendlyReason)
+        }
+        return outcome.attachedToExisting
+            ? "Face attached to \(outcome.name)'s existing record."
+            : "\(outcome.name) added to your network."
+    }
+
+    /// Rename an auto-enrolled contact.
+    ///
+    /// The live API has no PATCH/rename walker: `Enroll` matches an existing
+    /// Person only by exact or fuzzy *name*, so re-enrolling under the real
+    /// name creates (or merges into) the right node, and the placeholder is
+    /// then removed with `forget`. The same reference frame is replayed so the
+    /// face signature moves with the name.
+    static func rename(
+        from placeholder: String,
+        to newName: String,
+        photoJpeg: Data,
+        role: String = "",
+        org: String = "",
+        relationship: String = ""
+    ) async throws -> EnrollOutcome {
+        let outcome = try await enrollOutcome(
+            name: newName, photoJpeg: photoJpeg, role: role, org: org,
+            relationship: relationship
+        )
+        guard outcome.enrolled else {
+            throw APIError.backend(message: outcome.friendlyReason)
+        }
+        if placeholder.caseInsensitiveCompare(newName) != .orderedSame {
+            try? await forget(name: placeholder)
+        }
+        return outcome
     }
 
     static func personCard(name: String) async throws -> PersonCard {

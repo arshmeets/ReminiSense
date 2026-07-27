@@ -64,11 +64,12 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Lets your phone find and talk to your glasses over Wi-Fi.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Recall listens while you hold the Listen button so it can turn an introduction into a contact in your network graph.</string>
+	<string>Recall listens for a few seconds after you tap Meet (or while you hold Listen) so it can turn an introduction into a contact in your network graph.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Recall transcribes what you capture with the Listen button so the graph can pull out names, companies and follow-ups.</string>
+	<string>Recall transcribes those few seconds on your phone so the graph can pull out names, companies and follow-ups.</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>processing</string>
 		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>

@@ -5,7 +5,10 @@ import SwiftUI
 /// the graph learns a new person, their company, what you talked about, and
 /// what you owe them.
 struct ListenView: View {
-    @StateObject private var dictation = DictationManager()
+    /// Shared on purpose: the audio engine and its input tap are process-wide,
+    /// so every screen drives the same manager rather than fighting over the
+    /// input node.
+    @ObservedObject private var dictation = DictationManager.shared
     @State private var receipts: [IngestReceipt] = []
     @State private var sending = false
     @State private var errorText: String?
@@ -169,6 +172,17 @@ struct ListenView: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, minHeight: 70, alignment: .topLeading)
             .animation(.easeOut(duration: 0.2), value: dictation.transcript)
+
+            // Always-visible proof the pipeline is alive (or a reason it isn't).
+            Text(dictation.diagnostic)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.rcTextDim.opacity(0.8))
+            if !dictation.isUsable {
+                Text(dictation.authSummary)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Color.rcAlert)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .panel()
     }

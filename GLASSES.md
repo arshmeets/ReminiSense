@@ -1,4 +1,4 @@
-# ReminiSense on Meta Ray-Ban Display — integration guide
+# Recall on Meta Ray-Ban Display — integration guide
 
 Everything below is adapted from Meta's official `DisplayAccess` sample
 (meta-wearables-dat-ios **0.8.0**, Display capability shipped in 0.7, May 2026).
@@ -67,10 +67,10 @@ display builders in non-SwiftUI files — do the same).
 // on temple tap / app button:
 stream.capturePhoto(format: .jpeg)
 let photoToken = stream.photoDataPublisher.listen { photo in
-    Task { await ReminiSenseAPI.glance(jpeg: photo.data) }
+    Task { await RecallAPI.glance(jpeg: photo.data) }
 }
 
-enum ReminiSenseAPI {
+enum RecallAPI {
     static var base = URL(string: "http://<MAC-LAN-IP>:8000")!   // or the sandbox URL
 
     static func glance(jpeg: Data) async {
@@ -139,7 +139,7 @@ final class ReminiCards {
 
     // "more" = the Connection Card MD, distilled: page through "Things to ask about"
     func showAskAbout(name: String, page: Int) async {
-        let bullets = await ReminiSenseAPI.askAboutBullets(name: name)  // parses '- ' lines
+        let bullets = await RecallAPI.askAboutBullets(name: name)  // parses '- ' lines
         guard !bullets.isEmpty else { return }                          // under '## Things to ask about'
         let i = page % bullets.count                                    // from /walker/person_card md
         try? await display.send(

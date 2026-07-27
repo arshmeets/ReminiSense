@@ -44,34 +44,75 @@ struct RecallApp: App {
 
 struct RootView: View {
     @EnvironmentObject private var glasses: GlassesManager
-    @State private var tab: Int = 2  // land on Listen — the demo
+    @EnvironmentObject private var speech: SpeechManager
+    @State private var tab: Int = 0  // land on Meet — the one-tap demo
+    @State private var bootstrapped = false
 
     var body: some View {
         TabView(selection: $tab) {
-            ConnectView()
-                .tabItem { Label("Connect", systemImage: "eyeglasses") }
+            MeetView()
+                .tabItem { Label("Meet", systemImage: "sparkles") }
                 .tag(0)
-            CaptureView()
-                .tabItem { Label("Capture", systemImage: "viewfinder") }
+            ManualView()
+                .tabItem { Label("Manual", systemImage: "slider.horizontal.3") }
                 .tag(1)
-            ListenView()
-                .tabItem { Label("Listen", systemImage: "mic.fill") }
-                .tag(2)
             NetworkView()
                 .tabItem { Label("Network", systemImage: "person.2.fill") }
+                .tag(2)
+            ConnectView()
+                .tabItem { Label("Connect", systemImage: "eyeglasses") }
                 .tag(3)
             GuideView()
                 .tabItem { Label("Guide", systemImage: "book.fill") }
                 .tag(4)
         }
         .tint(Color.rcAccent)
-        .onAppear {
+        .task {
+            guard !bootstrapped else { return }
+            bootstrapped = true
             glasses.configure()
+
+            // Audio session first, then permissions, then the mic engine.
+            // Doing this at launch means a denied permission shows up in the UI
+            // now, not the first time the button is pressed on stage.
+            AudioSessionController.shared.activate()
+            await DictationManager.shared.requestAuthorization()
+            DictationManager.shared.prime()
+            MeetEngine.shared.bind(glasses: glasses, speech: speech)
+        }
+        .onAppear {
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor(Color.rcInk)
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
         }
+    }
+}
+
+/// The manual fallbacks, kept intact behind one tab: single-shot Capture and
+/// press-and-hold Listen. Meet does both at once; these exist for when a demo
+/// needs to isolate one half.
+struct ManualView: View {
+    @State private var mode = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $mode) {
+                Text("Capture").tag(0)
+                Text("Listen").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+
+            if mode == 0 {
+                CaptureView()
+            } else {
+                ListenView()
+            }
+        }
+        .background(Color.rcInk.ignoresSafeArea())
     }
 }

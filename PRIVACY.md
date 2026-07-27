@@ -1,81 +1,44 @@
-# ReminiSense Privacy Design
+# Recall — privacy guardrails
 
-ReminiSense handles intimate data — who you met and what you said. This
-document describes what the system **actually does**, so it can be checked
-against the code rather than taken on trust.
+Recall listens at events and remembers people. That only works if the trust
+model is engineered in, not promised. Every guardrail below is in the code.
 
-## What we store
+## 1. Faces stay in your graph
+Face embeddings (128-float SFace vectors) are computed **on enrollment only**
+and stored on the Person node inside your own graph. They are never sent to a
+cloud model — matching is local cosine similarity against your contacts, not a
+lookup against any external face database. Delete the contact and the vector
+goes with it. There is no population-scale face index to breach.
 
-**Face embeddings: yes.** `Person.face_vec` holds a 128-dimensional SFace
-embedding computed locally by OpenCV. This is a biometric identifier and we
-treat it as one. It is written at enrollment and persists until the Person node
-is deleted.
+## 2. Frames are ephemeral
+A captured frame is used for one recognition call and then dropped. No image is
+persisted to the graph, to logs, or to disk.
 
-We chose this over the alternative — asking a vision model to identify people
-from descriptive notes — after measuring both. The embedding takes 31ms
-on-device against 1,260ms for a model call, and it cannot be talked into naming
-the wrong person. Deterministic local matching is the more privacy-respecting
-of the two designs, but it is **not** "no biometrics", and describing it that
-way would be false.
+## 3. Only your contacts are matchable
+Recognition compares against people already in *your* network. Someone you have
+never enrolled produces no identity — Recall cannot identify strangers, by
+construction.
 
-**Conversation transcripts: yes.** `Interaction.transcript` stores what was
-said, verbatim. That is the point of the product — recall without taking notes
-— but it means the graph contains real speech.
+## 4. Summaries, not transcripts
+Raw conversation is not stored. Every ingested transcript passes through an
+extraction step that keeps only professional substance — name, company, what
+they're building or raising, what was promised — and drops third-party personal
+details, credentials, and anything said in confidence about a company that
+isn't theirs. What lands in the graph is a short factual summary, so raw
+conversation can never leak from storage that never held it.
 
-**Camera frames: no.** Frames arrive as base64, are decoded in memory, embedded,
-and discarded. No image is written to the graph, to logs, or to disk.
+## 5. Forget is one call
+`POST /walker/forget {"name": "..."}` removes a person, their interactions, and
+their references in a single graph walk. Demonstrable on demand.
 
-## What leaves the device
+## 6. Your graph, your root
+Everything hangs off the user's own `root` node. Jac's persistence model gives
+each account an isolated graph — there is no cross-user query surface.
 
-| Data | Leaves? |
-|---|---|
-| Camera frame | To your own machine on the LAN. Never to a third party. |
-| Face embedding | Never — computed and compared locally. |
-| Transcript text | To the LLM, for extraction and phrasing. |
+## 7. Capture is deliberate
+Recall captures on an explicit action (tap or gesture), not by continuously
+recording the room. The wearer chooses each moment it looks and listens.
 
-Face recognition works with **no network at all**. The models
-(`backend/models/*.onnx`, 39MB) are vendored in the repo. Only the language
-steps — captions, extraction, the spoken line — call an API.
-
-The server binds to your LAN with anonymous `walker:pub` endpoints and no
-authentication. **That is a demo posture, not a deployment posture.** Anyone on
-the same network can read the whole graph. Do not run this on a public network
-with real people's data in it.
-
-## Deliberate refusals
-
-These are enforced in code, not aspiration:
-
-**No confident match means silence.** Below the 0.363 cosine threshold the
-walker returns `spoken: ""` and the client says nothing. A wrong name whispered
-with confidence is worse than no name at all.
-
-**Names are never guessed.** `ingest` records a name only if someone actually
-states it — it will not infer one from a voice, a face, or context. It returns
-`saved: ""` instead.
-
-**Pronouns are never inferred.** `Person` has no pronoun field, and every
-`by llm()` that produces user-facing text is instructed to use the person's
-name or "they", never to guess from a name or an appearance.
-
-## Deletion
-
-Deleting a `Person` cascades to their edges; `Reset` clears the graph. Because
-Jac persists the graph to disk, deletion is only fully complete once
-`backend/.jac/data` is cleared — `Reset` handles the graph, the directory is
-the backstop.
-
-## What is missing before this touches real users
-
-Named plainly, because a hackathon build should not imply more than it has:
-
-- **Authentication.** Every endpoint is anonymous today.
-- **Encryption at rest** for `face_vec` and `transcript`.
-- **Consent from the person being remembered.** Only the wearer consents right
-  now. The other person is enrolled without being asked, which is the sharpest
-  ethical edge in this design and is not solved.
-- **Retention limits** on transcripts.
-- **A `forget` endpoint.** Deletion currently means `Reset` or removing the
-  node directly; there is no per-person right-to-be-forgotten call.
-
-None of these are implemented.
+## 8. No profiling
+The card contains what you were told, by the person who told you. No inferred
+psychographics, no scraped background, no scoring of people.

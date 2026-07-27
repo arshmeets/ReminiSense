@@ -170,9 +170,8 @@ struct CaptureView: View {
         do {
             let recognition = try await RecallAPI.recognize(jpeg: jpeg)
             guard recognition.matched, !recognition.name.isEmpty else {
-                statusLine = ""
-                errorText = "No match in your network yet — use Listen to log the intro, or enroll their face from the Network tab."
-                Task { await ReminiCards.shared.showNoMatch() }
+                // A miss is never a dead end: enrol the same frame right now.
+                await autoEnroll(jpeg: jpeg)
                 return
             }
 
@@ -212,6 +211,87 @@ struct CaptureView: View {
         } catch {
             statusLine = ""
             errorText = error.localizedDescription
+        }
+    }
+
+    /// Recognize came back `matched: false`. Rather than showing nothing —
+    /// which is what made the product look dead when the graph had no enrolled
+    /// faces — POST the SAME frame to Enroll straight away, named from whatever
+    /// Listen picked up this session, or a placeholder the user renames later.
+    private func autoEnroll(jpeg: Data) async {
+        statusLine = "New face — adding them…"
+        let heard = DictationManager.shared.transcript
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var name = ""
+        var receipt: IngestReceipt?
+        if !heard.isEmpty {
+            receipt = try? await RecallAPI.ingest(transcript: heard)
+            name = receipt?.saved.trimmingCharacters(in: .whitespaces) ?? ""
+        }
+        let isPlaceholder = name.isEmpty
+        if isPlaceholder { name = FaceCache.nextPlaceholderName() }
+
+        do {
+            let outcome = try await RecallAPI.enrollOutcome(
+                name: name,
+                photoJpeg: jpeg,
+                relationship: isPlaceholder ? "just met" : "",
+                notes: receipt == nil ? String(heard.prefix(300)) : ""
+            )
+            guard outcome.enrolled else {
+                statusLine = ""
+                errorText = outcome.friendlyReason
+                await ReminiCards.shared.showGuidance(outcome.friendlyReason)
+                return
+            }
+
+            FaceCache.store(jpeg, for: outcome.name)
+            if isPlaceholder { FaceCache.markPlaceholder(outcome.name) }
+
+            var lines: [String] = []
+            if let receipt, !receipt.topics.isEmpty {
+                lines.append("Talked about \(receipt.topics.joined(separator: ", ")).")
+            }
+            if lines.isEmpty {
+                lines.append(
+                    isPlaceholder
+                        ? "Saved as \(outcome.name) — rename them in Network."
+                        : "Face saved. Recall will know them next time."
+                )
+            }
+
+            cards.append(
+                RecallCard(
+                    found: true,
+                    name: outcome.name,
+                    org: receipt?.org ?? "",
+                    headline: outcome.attachedToExisting
+                        ? "Face linked to \(outcome.name)"
+                        : "New face — added as \(outcome.name)",
+                    lines: lines,
+                    topics: receipt?.topics ?? [],
+                    followups: receipt?.followups ?? [],
+                    history: []
+                )
+            )
+            statusLine = outcome.attachedToExisting
+                ? "Face linked to \(outcome.name)."
+                : "\(outcome.name) added."
+            speech.speak(
+                isPlaceholder
+                    ? "New face. Added to your network."
+                    : "New face. \(outcome.name), added to your network."
+            )
+            await ReminiCards.shared.showNewFace(
+                name: outcome.name,
+                detail: lines.first ?? "",
+                merged: outcome.attachedToExisting
+            )
+        } catch {
+            statusLine = ""
+            errorText = error.localizedDescription
+            await ReminiCards.shared.showGuidance("Couldn't save that face — check Connect.")
         }
     }
 }

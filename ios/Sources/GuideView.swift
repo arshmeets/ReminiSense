@@ -14,6 +14,7 @@ struct GuideView: View {
                     heroCard
                     loopCard
                     lensCard
+                    bandCard
                     privacyCard
                     judgesCard
                 }
@@ -45,11 +46,40 @@ struct GuideView: View {
 
     private var loopCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionLabel("The loop", icon: "arrow.triangle.2.circlepath")
-            step(1, "**Listen.** Hold the mic while someone introduces themselves. The transcript runs live on screen; on release it goes to the graph, which pulls out their name, company, what you discussed, and what you promised them.")
-            step(2, "**Capture.** Point at a face and tap. One frame goes to the backend, gets matched against the faces you've enrolled, and comes back as a recall card.")
-            step(3, "**Recall.** The card lands three places at once — on the glasses lens, in your ear over the speakers, and in the app so you can scroll it later.")
-            step(4, "**Ask.** In Network, ask the graph in plain language: “who did I meet working on payments?” It answers with the people and the reason they match.")
+            SectionLabel("The loop — one tap", icon: "arrow.triangle.2.circlepath")
+            step(1, "**Meet.** One button. Recall takes a frame, then listens for about eight seconds while they introduce themselves. Camera first, microphone second — they never contend for the audio route.")
+            step(2, "**Recognise or remember.** The frame is matched against every face you've enrolled. A hit becomes a recall card. A miss is *not* a dead end: the same frame is enrolled on the spot, named from what they just said, or as a placeholder you rename later.")
+            step(3, "**Autofill.** The transcript goes to the graph, which pulls out their company, the topics you covered and anything you promised them — and pins it to the face you just captured.")
+            step(4, "**Answer.** The card lands three places at once: on the glasses lens, in your ear over the speakers, and in the app.")
+            step(5, "**Ask.** In Network, ask the graph in plain language: “who did I meet working on payments?” It answers with the people and the reason they match.")
+            bullet("“Keep going” repeats the whole loop hands-free — walk a room and Recall builds the graph as you go.")
+            bullet("The Manual tab still has single-shot Capture and press-and-hold Listen for when you want to isolate one half.")
+        }
+        .panel()
+    }
+
+    private var bandCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionLabel("The Neural Band", icon: "hand.point.up.left.fill")
+            Text("What a pinch actually does — worth being precise about, because the SDK is narrower than people assume.")
+                .font(.rcCaption)
+                .foregroundStyle(Color.rcTextDim)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 9) {
+                SectionLabel("Can")
+                bullet("Select whatever is on the lens right now. Every Recall card ships with buttons — “more”/“next” to page the talking points and “dismiss” to clear — so a pinch always has a target.")
+                bullet("Page through the rest of a person's talking points without touching the phone.")
+                bullet("Dismiss a card early so it isn't sitting in your eyeline mid-handshake.")
+            }
+
+            VStack(alignment: .leading, spacing: 9) {
+                SectionLabel("Cannot")
+                bullet("Start a capture. DAT 0.8 exposes the band only as selection on the most recently sent lens view — there is no free-standing gesture event, so the loop is still kicked off from the phone (or left on “keep going”).")
+                bullet("Scroll, swipe, or handle raw EMG. The app sees a tap on a Button, nothing lower level.")
+                bullet("Reach a card that has no Button on it. A lens view sent without one swallows the pinch entirely — which is why every card here has at least one.")
+                bullet("Do anything while the display is not in the started state. Connect shows that state verbatim.")
+            }
         }
         .panel()
     }
@@ -79,10 +109,11 @@ struct GuideView: View {
             .background(Color.rcSurfaceHi)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
-            bullet("The heading is who they are: name and company, straight from the graph.")
-            bullet("The body is the highest-value thing to say next — a topic you already covered, or a follow-up you owe them.")
-            bullet("“more” pages through the rest of the talking points; a Neural Band pinch advances it. The card clears itself after twelve seconds so it never sits in your eyeline mid-conversation.")
-            bullet("No match means no card and no audio. A wrong name is worse than silence.")
+            bullet("The heading is who they are: name, then role and company underneath, straight from the graph.")
+            bullet("The body is the highest-value thing to say next — a topic you already covered, or a follow-up you owe them. One or two lines, never a wall.")
+            bullet("“more” pages through the rest of the talking points; a Neural Band pinch advances it. “dismiss” clears it. The card clears itself after fourteen seconds anyway.")
+            bullet("A face Recall doesn't know gets a “new contact” card instead — it has been added to your network, and the lens says so. There is no such thing as a capture that shows nothing.")
+            bullet("If the frame had no detectable face, the lens says exactly that and tells you to get closer. Recall still never guesses a name out loud — a wrong name is worse than silence.")
         }
         .panel()
     }
@@ -93,8 +124,8 @@ struct GuideView: View {
             promise("No biometric database. A face becomes a 128-dimension vector on your own backend; the photo is matched and dropped, never stored, never sent to a third-party face service.")
             promise("Transcripts are sanitised before storage. What lands in the graph is structured contact detail — name, company, topics, follow-ups — not the raw audio and not the verbatim conversation.")
             promise("Forget is one call. “Forget” on any contact deletes their vector, notes and every encounter. No tombstone, no soft delete.")
-            promise("Nothing runs continuously. Capture is one deliberate frame; Listen only records while your thumb is on the button.")
-            promise("Enrollment is consented. Someone's face only enters the graph when you deliberately add it with them in front of you.")
+            promise("Nothing runs continuously by default. Meet is one deliberate tap: one frame, one fixed listening window. “Keep going” is opt-in and visible while it's on.")
+            promise("Auto-enroll is still your action. A face only enters the graph on a capture you triggered, with them in front of you — Recall just stops making you fill in a form first. Forget removes it as completely as any other contact.")
         }
         .panel()
     }
@@ -103,11 +134,12 @@ struct GuideView: View {
         VStack(alignment: .leading, spacing: 14) {
             SectionLabel("For judges — 90 seconds", icon: "sparkles")
             step(1, "Tap **Seed the demo graph** below — that loads a few founders and investors so the network isn't empty.")
-            step(2, "**Listen tab:** hold the mic and have someone say “Hi, I'm Dana, I run growth at Ledgerloop, we do embedded payments — send me the API docs next week.” Release. The receipt shows the person, the company, the topics, and the follow-up the graph just learned.")
-            step(3, "**Network tab:** pull to refresh — Dana is there. Tap **+**, enroll their face with the camera.")
-            step(4, "**Capture tab:** point at them and tap. The recall card comes back on the lens, in your ear, and on screen — with the fintech thread they just mentioned.")
-            step(5, "**Network tab:** ask “who did I meet working on payments?” — the graph reasons over everyone and explains the match.")
+            step(2, "**Meet tab:** point at someone new and tap once. While it listens, have them say “Hi, I'm Dana, I run growth at Ledgerloop, we do embedded payments — send me the API docs next week.” Recall doesn't know the face, so it enrols it as Dana on the spot and shows a new-contact card on the lens.")
+            step(3, "**Meet again, same person.** Now it's a hit: the lens shows “Dana Okafor / Growth, Ledgerloop” with the embedded-payments thread and the API-docs follow-up, and the same line goes into your ear.")
+            step(4, "**Neural Band:** pinch to page to the next talking point, pinch “dismiss” to clear it. Every card has buttons, so the band always does something.")
+            step(5, "**Network tab:** ask “who did I meet working on payments?” — the graph reasons over everyone and explains the match. Anyone auto-enrolled without a name is badged **NAME ME**; open them and give them a real name.")
             step(6, "**Contact page → Forget** to show the privacy story in one tap.")
+            bullet("If the room is loud, flip on **Keep going** and just walk — the loop repeats itself.")
 
             HStack(spacing: 10) {
                 Button {

@@ -80,7 +80,7 @@ struct NetworkView: View {
             .navigationTitle("Network")
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: String.self) { name in
-                ContactView(name: name, onForgot: { await reload() })
+                ContactView(name: name, onChanged: { await reload() })
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -213,6 +213,9 @@ struct NetworkView: View {
                             .foregroundStyle(Color.rcAccent)
                             .accessibilityLabel("Face enrolled")
                     }
+                    if FaceCache.isPlaceholder(person.name) {
+                        Chip(text: "NAME ME", tint: .rcAccent)
+                    }
                 }
                 if !person.subtitle.isEmpty {
                     Text(person.subtitle)
@@ -303,17 +306,47 @@ struct Avatar: View {
 
 struct ContactView: View {
     let name: String
-    var onForgot: () async -> Void
+    var onChanged: () async -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var card: PersonCard?
     @State private var errorText: String?
     @State private var confirmForget = false
     @State private var forgetting = false
+    @State private var renaming = false
+
+    /// A rename is only possible when we still hold the frame this person was
+    /// enrolled from — the backend has no rename walker, so renaming means
+    /// re-enrolling under the real name.
+    private var canRename: Bool { FaceCache.frame(for: name) != nil }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                if FaceCache.isPlaceholder(name) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionLabel("Auto-enrolled", icon: "sparkles")
+                        Text("Recall added this face on the spot because it didn't recognise them and nobody said a name. Give them their real name and the graph keeps everything already attached.")
+                            .font(.rcCaption)
+                            .foregroundStyle(Color.rcTextDim)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button {
+                            renaming = true
+                        } label: {
+                            Label("Give them a real name", systemImage: "pencil")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(AccentButtonStyle())
+                        .disabled(!canRename)
+                        if !canRename {
+                            Text("The reference frame for this contact isn't on this phone, so a rename can't carry the face over. Enrol them again from Meet.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.rcTextDim)
+                        }
+                    }
+                    .panel()
+                }
+
                 if let card {
                     MarkdownText(md: card.md.isEmpty ? "# \(card.name)" : card.md)
                         .panel()
@@ -330,6 +363,16 @@ struct ContactView: View {
                 }
 
                 if card != nil {
+                    if canRename, !FaceCache.isPlaceholder(name) {
+                        Button {
+                            renaming = true
+                        } label: {
+                            Label("Rename \(name)", systemImage: "pencil")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(GhostButtonStyle(tint: .rcAccent))
+                    }
+
                     Button {
                         confirmForget = true
                     } label: {
@@ -360,6 +403,15 @@ struct ContactView: View {
         } message: {
             Text("Their face signature and everything the graph knows about them is permanently removed.")
         }
+        .sheet(isPresented: $renaming) {
+            RenameSheet(
+                placeholder: name,
+                onDone: {
+                    await onChanged()
+                    dismiss()
+                }
+            )
+        }
         .task {
             do {
                 card = try await RecallAPI.personCard(name: name)
@@ -374,10 +426,147 @@ struct ContactView: View {
         defer { forgetting = false }
         do {
             try await RecallAPI.forget(name: name)
-            await onForgot()
+            FaceCache.forget(name)
+            FaceCache.clearPlaceholder(name)
+            await onChanged()
             dismiss()
         } catch {
             errorText = "Couldn't forget: \(error.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - Rename
+
+/// Renames an auto-enrolled contact.
+///
+/// API limitation, verified against the live backend: there is no rename or
+/// PATCH walker. `Enroll` finds an existing Person by exact-or-fuzzy NAME only,
+/// so the only way to rename is to re-enrol the cached reference frame under
+/// the real name (which also merges into a record `ingest` may already have
+/// created) and then `forget` the placeholder.
+struct RenameSheet: View {
+    let placeholder: String
+    var onDone: () async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var newName = ""
+    @State private var role = ""
+    @State private var org = ""
+    @State private var saving = false
+    @State private var errorText: String?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let image = FaceCache.image(for: placeholder) {
+                        HStack(spacing: 14) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 76, height: 76)
+                                .clipShape(
+                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                )
+                            Text("The frame Recall enrolled — it moves to the new name, so recognition keeps working.")
+                                .font(.rcCaption)
+                                .foregroundStyle(Color.rcTextDim)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+
+                    field("Real name", text: $newName, prompt: "Nadia Rahman")
+                    field("Role", text: $role, prompt: "Founder")
+                    field("Company", text: $org, prompt: "Loopwire")
+
+                    Text("If the graph already has someone by this name — because Listen logged the conversation — the face is attached to that record instead of making a second one.")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Color.rcTextDim)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let errorText {
+                        Text(errorText)
+                            .font(.rcCaption)
+                            .foregroundStyle(Color.rcAlert)
+                    }
+
+                    Button {
+                        Task { await save() }
+                    } label: {
+                        if saving {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Save name")
+                        }
+                    }
+                    .buttonStyle(AccentButtonStyle())
+                    .disabled(
+                        newName.trimmingCharacters(in: .whitespaces).isEmpty || saving
+                    )
+                    .opacity(
+                        newName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.45 : 1
+                    )
+                }
+                .padding(20)
+            }
+            .recallScreen()
+            .navigationTitle("Name this contact")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.tint(.rcTextDim)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func field(
+        _ label: String, text: Binding<String>, prompt: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(label)
+            TextField(
+                "", text: text,
+                prompt: Text(prompt).foregroundColor(Color.rcTextDim)
+            )
+            .font(.rcBody)
+            .foregroundStyle(Color.rcText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Color.rcSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.rcLine, lineWidth: 1)
+            )
+        }
+    }
+
+    private func save() async {
+        let target = newName.trimmingCharacters(in: .whitespaces)
+        guard !target.isEmpty else { return }
+        guard let jpeg = FaceCache.frame(for: placeholder) else {
+            errorText = "The reference frame isn't on this phone any more — enrol them again from Meet."
+            return
+        }
+        saving = true
+        defer { saving = false }
+        do {
+            let outcome = try await RecallAPI.rename(
+                from: placeholder,
+                to: target,
+                photoJpeg: jpeg,
+                role: role.trimmingCharacters(in: .whitespaces),
+                org: org.trimmingCharacters(in: .whitespaces)
+            )
+            FaceCache.move(from: placeholder, to: outcome.name)
+            FaceCache.clearPlaceholder(placeholder)
+            dismiss()
+            await onDone()
+        } catch {
+            errorText = error.localizedDescription
         }
     }
 }
