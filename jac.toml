@@ -1,0 +1,27 @@
+# Root project config - this is what JacHammer builds when the repo is imported.
+#
+# It points at backend/hammer.jac, the sandbox build: same graph and language
+# layer as backend/app.jac but without the face-recognition half, which needs
+# OpenCV and 39MB of vendored ONNX weights. Nothing here has a native
+# dependency, so the sandbox has nothing to compile.
+#
+# The self-hosted deployment uses backend/jac.toml and runs app.jac instead,
+# with the full face pipeline. The two configs are independent.
+
+[project]
+name = "recall"
+version = "0.1.0"
+description = "Recall - an AI memory layer for real life. Speech becomes a knowledge graph; the graph answers who you met and what you said."
+entry-point = "backend/hammer.jac"
+kind = "service"
+jac-version = "==0.34.7"
+
+[byllm.model]
+default_model = "claude-haiku-4-5-20251001"
+api_key = "${ANTHROPIC_API_KEY}"
+
+[byllm.call_params]
+temperature = 0.0
+
+# Deliberately empty: the sandbox build is pure Jac.
+[dependencies]

@@ -168,7 +168,11 @@ node Person {
         notes: str = "",
         interests: list[str] = [],
         followups: list[str] = [],
-        face_vec: list[float] = [];
+        face_vec: list[float] = [],
+        # The enrolment photo, kept so clients can show a face next to a name.
+        # Distinct from face_vec: the vector is what matching uses, this is
+        # only ever displayed. Empty for anyone enrolled by voice alone.
+        photo_b64: str = "";
 }
 
 
@@ -468,6 +472,10 @@ walker:pub Enroll {
         person: Person = who;
         person.face_vec = vec;
 
+        # Keep the frame we enrolled from, so clients have a face to show.
+        # A face was detected in it by definition - that is why we got here.
+        person.photo_b64 = self.frame_b64;
+
         # Only fill fields the caller actually supplied, so enrolling a face
         # never blanks out detail the conversation already captured.
         if self.role != "" {
@@ -617,6 +625,7 @@ walker:pub Roster {
                 "name": p.name, "role": p.role, "org": p.org,
                 "relationship": p.relationship,
                 "enrolled_face": len(p.face_vec) > 0,
+                "photo_b64": p.photo_b64,
                 "encounters": seen
             });
         }
@@ -818,6 +827,7 @@ walker:pub recall {
             "found": True,
             "name": who.name,
             "org": who.org,
+            "photo_b64": who.photo_b64,
             "headline": card.headline,
             "lines": card.lines,
             "topics": topics,
@@ -1074,7 +1084,7 @@ walker:pub person_card {
             md = md + "\n## History\n" + "\n".join(past) + "\n";
         }
 
-        report {"name": who.name, "md": md};
+        report {"name": who.name, "photo_b64": who.photo_b64, "md": md};
     }
 }
 
