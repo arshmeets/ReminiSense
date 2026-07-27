@@ -7,3 +7,6 @@ opencode.json
 # jac build artifacts / persisted graph
 .jac/
 **/.jac/
+
+# glasses client lives in its own repo: recall-glasses
+ios/
