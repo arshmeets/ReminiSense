@@ -223,19 +223,22 @@ struct CaptureView: View {
         let heard = DictationManager.shared.transcript
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        var name = ""
+        // Ingest first, so the conversation gets to name this face before a
+        // placeholder is minted for it.
         var receipt: IngestReceipt?
         if !heard.isEmpty {
             receipt = try? await RecallAPI.ingest(transcript: heard)
-            name = receipt?.saved.trimmingCharacters(in: .whitespaces) ?? ""
         }
-        let isPlaceholder = name.isEmpty
-        if isPlaceholder { name = FaceCache.nextPlaceholderName() }
+        let real = FaceCache.usableRealName(receipt?.saved ?? "")
+        let isPlaceholder = real == nil
+        let name = real ?? FaceCache.nextPlaceholderName()
 
         do {
             let outcome = try await RecallAPI.enrollOutcome(
                 name: name,
                 photoJpeg: jpeg,
+                role: receipt?.role ?? "",
+                org: receipt?.org ?? "",
                 relationship: isPlaceholder ? "just met" : "",
                 notes: receipt == nil ? String(heard.prefix(300)) : ""
             )

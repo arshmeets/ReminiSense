@@ -64,37 +64,6 @@
   .dot{width:8px; height:8px; border-radius:50%; background:#4A5566; transition:background .25s, box-shadow .25s;}
   .dot.ok{background:var(--accent); box-shadow:0 0 0 3px var(--accent-wash);}
   .dot.bad{background:var(--danger); box-shadow:0 0 0 3px rgba(242,131,107,.16);}
-  /* live pill + pause toggle */
-  .live{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-2);
-    border:1px solid rgba(123,104,238,.34); background:var(--accent-wash);
-    border-radius:99px; padding:4px 6px 4px 11px;}
-  .live .lvdot{width:8px; height:8px; border-radius:50%; background:var(--accent);
-    animation:beat 1.6s ease-out infinite; flex:none;}
-  @keyframes beat{0%{box-shadow:0 0 0 0 rgba(123,104,238,.55);} 70%{box-shadow:0 0 0 7px rgba(123,104,238,0);}
-    100%{box-shadow:0 0 0 0 rgba(123,104,238,0);}}
-  .live.paused{border-color:var(--line-2); background:var(--surface); color:var(--muted);}
-  .live.paused .lvdot{background:#4A5566; animation:none;}
-  .live #liveLabel{letter-spacing:.1em; text-transform:uppercase; font-size:10.5px; font-weight:600;}
-  #pauseBtn{border:none; background:rgba(255,255,255,.05); border-radius:99px; padding:2px 9px;
-    font-size:11px; line-height:1.5; color:var(--ink-2);}
-  #pauseBtn:hover{transform:none; background:rgba(255,255,255,.11); color:var(--ink);}
-
-  /* live toasts */
-  #toasts{position:fixed; right:20px; bottom:20px; z-index:60; display:flex;
-    flex-direction:column; gap:9px; align-items:flex-end; pointer-events:none;
-    transition:right .3s cubic-bezier(.4,0,.2,1);}
-  #toasts.shift{right:calc(min(470px,94vw) + 18px);}
-  .toast{display:flex; gap:10px; align-items:flex-start; max-width:330px;
-    background:var(--raise); border:1px solid rgba(123,104,238,.42); border-radius:12px;
-    padding:11px 15px; box-shadow:var(--shadow); animation:toastin .34s cubic-bezier(.2,.9,.3,1.3);}
-  .toast.out{animation:toastout .38s ease forwards;}
-  @keyframes toastin{from{opacity:0; transform:translateX(26px) scale(.94);} to{opacity:1; transform:none;}}
-  @keyframes toastout{to{opacity:0; transform:translateX(26px) scale(.96);}}
-  .toast .tdot{width:8px; height:8px; border-radius:50%; background:var(--accent); flex:none; margin-top:6px;
-    box-shadow:0 0 0 4px var(--accent-wash);}
-  .toast .tmsg{font-family:Poppins,Inter,sans-serif; font-weight:500; font-size:13.5px; line-height:1.35;}
-  .toast .tsub{color:var(--muted); font-size:11.5px; margin-top:2px;}
-
   .tabs{display:flex; gap:4px; margin-left:auto; background:var(--sunk); padding:4px;
     border-radius:12px; border:1px solid var(--line);}
   .tabs button{border:none; background:transparent; border-radius:9px; padding:7px 18px;
@@ -116,27 +85,6 @@
     align-items:center; gap:6px;}
   .pcard .og{color:var(--muted); font-size:12px; margin-top:1px;}
   .pcard .mt{display:flex; gap:6px; align-items:center; margin-top:7px; font-size:11px; color:var(--muted);}
-  .pcard .row{display:flex; gap:10px; align-items:center;}
-  .pcard .col{min-width:0; flex:1;}
-  .pcard.unnamed{border-style:dashed; border-color:var(--line-2);}
-  .pcard.unnamed:hover{border-color:var(--accent);}
-  .pcard.newin{animation:cardin .6s cubic-bezier(.2,.9,.3,1.3); border-color:var(--accent);}
-  @keyframes cardin{0%{opacity:0; transform:translateY(9px) scale(.93);
-      box-shadow:0 0 0 0 rgba(123,104,238,.5);}
-    45%{box-shadow:0 0 22px 2px rgba(123,104,238,.45);}
-    100%{opacity:1; transform:none; box-shadow:0 0 0 0 rgba(123,104,238,0);}}
-  .newchip{font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; font-weight:600;
-    padding:2px 7px; border-radius:99px; color:var(--accent-lift);
-    border:1px dashed rgba(123,104,238,.55); background:var(--accent-wash); white-space:nowrap;}
-
-  /* avatars — photo when the backend has one, initials otherwise */
-  .av{width:34px; height:34px; border-radius:50%; flex:none; overflow:hidden; display:flex;
-    align-items:center; justify-content:center; background:var(--accent); color:#fff;
-    font-family:Poppins,Inter,sans-serif; font-weight:600; font-size:13px; letter-spacing:-.01em;}
-  .av img{width:100%; height:100%; object-fit:cover; display:block;}
-  .av.dash{background:var(--sunk); color:var(--accent-lift);
-    border:1px dashed rgba(123,104,238,.6);}
-  .av.lg{width:46px; height:46px; font-size:17px;}
   .face{width:6px; height:6px; border-radius:50%; background:var(--accent); flex:none;}
   .enc{background:var(--sunk); border:1px solid var(--line-2); border-radius:99px; padding:1px 7px;}
   .strip .empty{padding:10px 2px;}
@@ -262,39 +210,12 @@
   .md blockquote{border-left:2px solid var(--accent); padding:2px 0 2px 13px; margin:10px 0;
     color:var(--ink); font-size:15px;}
 
-  /* contact-card detail: topic chips, what you owe, compact history */
-  .sec{margin-bottom:17px;}
-  .sec .eyebrow{display:block; margin-bottom:8px;}
-  .chips{display:flex; flex-wrap:wrap; gap:6px;}
-  .chip{font-size:12.5px; padding:4px 11px; border-radius:99px; background:var(--sunk);
-    border:1px solid var(--line-2); color:var(--ink-2);}
-  .owe{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:7px;}
-  .owe li{display:flex; gap:9px; align-items:flex-start; font-size:14px; color:var(--ink);
-    background:var(--sunk); border:1px solid var(--line); border-left:2px solid var(--accent);
-    border-radius:9px; padding:8px 12px; line-height:1.45;}
-  .owe li::before{content:"↗"; color:var(--accent-lift); flex:none;}
-  .hist{list-style:none; padding:0; margin:0;}
-  .hist li{position:relative; padding:0 0 13px 19px;}
-  .hist li::after{content:""; position:absolute; left:3px; top:6px; width:7px; height:7px;
-    border-radius:50%; background:var(--accent); opacity:.75;}
-  .hist li::before{content:""; position:absolute; left:6px; top:15px; bottom:0; width:1px; background:var(--line-2);}
-  .hist li:last-child{padding-bottom:0;} .hist li:last-child::before{display:none;}
-  .hist .hw{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);}
-  .hist .ht{font-size:13.5px; color:var(--ink-2); line-height:1.5;}
-
-  /* entrances live in CSS, not in d3 transitions: a backgrounded tab pauses
-     rAF, and anything mid-transition would otherwise stay stuck invisible */
-  @keyframes svgin{from{opacity:0;}}
-  @keyframes popin{from{transform:scale(.15); opacity:0;}}
-  .glink{stroke:#2B3542; stroke-opacity:.9; stroke-width:1.2; animation:svgin .3s ease;}
+  .glink{stroke:#2B3542; stroke-opacity:.9; stroke-width:1.2;}
   .glabel{font-size:9px; fill:var(--muted); opacity:.5; text-anchor:middle; pointer-events:none;
-    letter-spacing:.06em; text-transform:uppercase; animation:svgin .3s ease;}
+    letter-spacing:.06em; text-transform:uppercase;}
   .gnode{cursor:grab;} .gnode text{pointer-events:none;}
-  .gnode .body:not([transform]){transform-box:fill-box; transform-origin:center;
-    animation:popin .55s cubic-bezier(.2,.9,.35,1.35);}
   .initials{fill:#fff; font-family:Poppins,Inter,sans-serif; font-weight:600; text-anchor:middle;}
-  .nname{fill:var(--ink-2); font-size:11px; text-anchor:middle; letter-spacing:-.01em;
-    opacity:.95; animation:svgin .42s ease .1s;}
+  .nname{fill:var(--ink-2); font-size:11px; text-anchor:middle; letter-spacing:-.01em;}
   .gnode.person{cursor:pointer;}
   .hint{fill:var(--accent-lift); font-size:9px; text-anchor:middle; opacity:0; transition:opacity .2s ease;
     letter-spacing:.1em; text-transform:uppercase;}
@@ -303,15 +224,6 @@
     transform-box:fill-box; transform-origin:center;}
   .pulsing .halo{animation:pulse 2.6s ease-out infinite;}
   @keyframes pulse{0%{opacity:.6; transform:scale(.72);} 70%{opacity:0; transform:scale(1.5);} 100%{opacity:0; transform:scale(1.5);}}
-  /* auto-enrolled, still unnamed */
-  .gnode circle.body.unnamed,.gnode rect.body.unnamed{stroke:var(--accent-lift);
-    stroke-width:2; stroke-dasharray:5 4; fill-opacity:.34;}
-  /* a node that just arrived from the glasses */
-  .gnode.newin{animation:glowpop 1.5s ease-out;}
-  @keyframes glowpop{0%{filter:drop-shadow(0 0 0 rgba(123,104,238,0));}
-    22%{filter:drop-shadow(0 0 15px rgba(123,104,238,.95));}
-    100%{filter:drop-shadow(0 0 0 rgba(123,104,238,0));}}
-  .gnode.newin .halo{stroke-width:2.5; animation:pulse 1.35s ease-out 3;}
 
   @media (max-width:1080px){
     .view.on{flex-direction:column;}
@@ -328,10 +240,6 @@
     <span class="tag">your network, remembered</span>
   </div>
   <div class="status"><span id="dot" class="dot"></span><span id="dotLabel">connecting…</span></div>
-  <div class="live" id="livePill" title="The graph refreshes itself every few seconds">
-    <span class="lvdot"></span><span id="liveLabel">live</span>
-    <button id="pauseBtn" onclick="toggleLive()" aria-label="Pause live updates">pause</button>
-  </div>
   <nav class="tabs">
     <button id="tab-net" class="active" onclick="showView('net')">Network</button>
     <button id="tab-follow" onclick="showView('follow')">Follow-ups</button>
@@ -411,12 +319,9 @@
   </section>
 </main>
 
-<div id="toasts" aria-live="polite"></div>
-
 <aside id="panel" aria-label="Contact card">
   <div class="phead">
-    <span id="cardAvatar" class="av lg" style="margin-top:4px"></span>
-    <div style="min-width:0">
+    <div>
       <div class="eyebrow">Contact card</div>
       <h2 id="cardName">&nbsp;</h2>
     </div>
@@ -467,47 +372,6 @@ function arr(v){ return Array.isArray(v) ? v.filter(x=>x != null && x !== "") : 
 function jsArg(s){ return esc(JSON.stringify(String(s == null ? "" : s))); }
 function trunc(s, n){ s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n-1) + "…" : s; }
 
-/* ---------- photos + placeholder names ----------
-   The backend Person node may start returning `photo_b64` (bare base64 JPEG) on
-   Roster and/or recall. Everything below degrades to initials when it doesn't. */
-const PHOTOS = new Map();               // name -> clean base64 payload
-function normPhoto(v){
-  if(typeof v !== "string") return "";
-  let s = v.trim();
-  if(!s) return "";
-  const i = s.indexOf("base64,");           // tolerate a full data: URL
-  if(i >= 0) s = s.slice(i + 7);
-  s = s.replace(/\s+/g, "");
-  return /^[A-Za-z0-9+/=]{64,}$/.test(s) ? s : "";
-}
-function photoUrl(name){
-  const b64 = PHOTOS.get(name);
-  if(!b64) return "";
-  const mime = b64.startsWith("iVBOR") ? "image/png" : "image/jpeg";
-  return "data:" + mime + ";base64," + b64;
-}
-/* remember a photo off any payload shape we get handed */
-function notePhoto(obj){
-  if(!obj || !obj.name) return false;
-  const p = normPhoto(obj.photo_b64 || obj.photo || "");
-  if(!p || PHOTOS.get(obj.name) === p) return false;
-  PHOTOS.set(obj.name, p);
-  return true;
-}
-/* auto-enrolled faces the user hasn't named yet: "New contact 01" */
-function isPlaceholder(name){ return /^new contact(\s+\d+)?$/i.test(String(name || "").trim()); }
-function initials(label){
-  const parts = String(label || "?").trim().split(/\s+/).filter(Boolean);
-  return (parts.map(w=>w[0]).join("") || "?").slice(0,2).toUpperCase();
-}
-function avatarHtml(name, cls){
-  const url = photoUrl(name);
-  const k = "av " + (cls || "") + (url ? "" : (isPlaceholder(name) ? " dash" : ""));
-  return url
-    ? `<span class="${k}"><img alt="" src="${esc(url)}"></span>`
-    : `<span class="${k}">${esc(isPlaceholder(name) ? "?" : initials(name))}</span>`;
-}
-
 function showView(name){
   for(const v of ["net","follow"]){
     $("tab-"+v).classList.toggle("active", v===name);
@@ -531,12 +395,10 @@ const KIND = {
   interaction: {shape:"circle",  r:6,  fill:"#6B7688"}
 };
 const kindOf = d => KIND[d && d.kind] || KIND.encounter;
-let nodes = [], links = [], sim, svg, defs, linkG, labelG, nodeG, W = 820, H = 540;
-let dragging = false;
+let nodes = [], links = [], sim, svg, linkG, labelG, nodeG, W = 820, H = 540;
 
 function initGraph(){
   svg = d3.select("#graph");
-  defs = svg.append("defs");
   linkG = svg.append("g"); labelG = svg.append("g"); nodeG = svg.append("g");
   sim = d3.forceSimulation()
     .force("link", d3.forceLink().id(d=>d.id)
@@ -555,48 +417,17 @@ function sizeGraph(){
   svg.attr("viewBox", [0,0,W,H]);
   if(sim){ sim.force("center", d3.forceCenter(W/2, H/2)); sim.alpha(.3).restart(); }
 }
-/* photo fill for a person node — an <image> inside a <pattern>, re-pointed
-   whenever the photo arrives or changes so late-arriving faces still land */
-function patternFor(d){
-  const url = photoUrl(d.label);
-  const id = "pf-" + String(d.id).replace(/[^A-Za-z0-9_-]/g, "");
-  let p = defs.select("#" + id);
-  if(!url){ p.remove(); return ""; }
-  if(p.empty()){
-    p = defs.append("pattern").attr("id", id)
-      .attr("patternContentUnits","objectBoundingBox").attr("width",1).attr("height",1);
-    p.append("image").attr("width",1).attr("height",1).attr("preserveAspectRatio","xMidYMid slice");
-  }
-  const img = p.select("image");
-  if(img.attr("href") !== url) img.attr("href", url).attr("xlink:href", url);
-  return "url(#" + id + ")";
+function initials(label){
+  const parts = String(label || "?").trim().split(/\s+/).filter(Boolean);
+  return (parts.map(w=>w[0]).join("") || "?").slice(0,2).toUpperCase();
 }
-/* runs on every render (not just enter) so photos, names and the unnamed
-   treatment stay in sync without rebuilding the node */
-function paintNode(el, d){
-  const me = d3.select(el), k = kindOf(d), body = me.select(".body");
-  if(body.empty()) return;
-  const fill = d.kind === "person" ? (patternFor(d) || k.fill) : k.fill;
-  body.attr("fill", fill).classed("unnamed", isPlaceholder(d.label));
-  const ini = me.select("text.initials");
-  if(!ini.empty()) ini.text(isPlaceholder(d.label) ? "?" : initials(d.label))
-    .style("display", fill.startsWith("url(") ? "none" : null);
-  me.select("text.nname").text(trunc(d.label, d.kind === "person" ? 22 : 26));
-}
-
-function renderGraph(g, opts){
-  opts = opts || {};
+function renderGraph(g){
   const rawNodes = arr(g && g.nodes).filter(n=>n && n.id != null);
   const prev = new Map(nodes.map(n=>[n.id, n]));
-  const fresh = new Set();                       // ids that were not on screen
-  nodes = rawNodes.map(n=>{
-    const was = prev.get(n.id);
-    if(!was && opts.announce) fresh.add(n.id);
-    return Object.assign(
-      was || {x:W/2 + 40*(Math.random()-.5), y:H/2 + 40*(Math.random()-.5)},
-      {id:n.id, label:n.label || "", kind:n.kind || "encounter",
-       sub:n.sub || "", pulse:!!n.pulse});
-  });
+  nodes = rawNodes.map(n=>Object.assign(
+    prev.get(n.id) || {x:W/2 + 40*(Math.random()-.5), y:H/2 + 40*(Math.random()-.5)},
+    {id:n.id, label:n.label || "", kind:n.kind || "encounter",
+     sub:n.sub || "", pulse:!!n.pulse}));
   const ids = new Set(nodes.map(n=>n.id));
   /* ids are opaque hashes and a link may point at a node the walker didn't
      return — drop those or the force layout throws. */
@@ -604,22 +435,13 @@ function renderGraph(g, opts){
     .filter(l=>l && ids.has(l.source) && ids.has(l.target))
     .map(l=>({source:l.source, target:l.target, kind:l.kind || "",
               key:l.source + "→" + l.target + "·" + (l.kind || "")}));
-  /* drop a newcomer next to something it's already attached to, so it doesn't
-     fly in from the middle and shove the settled layout around */
-  const byId = new Map(nodes.map(n=>[n.id, n]));
-  if(fresh.size) for(const l of links){
-    const s = byId.get(l.source), t = byId.get(l.target);
-    for(const [a, b] of [[s,t],[t,s]]){
-      if(a && b && fresh.has(a.id) && !fresh.has(b.id) && b.x != null && a.__seeded !== true){
-        a.x = b.x + 50*(Math.random()-.5); a.y = b.y + 50*(Math.random()-.5); a.__seeded = true;
-      }
-    }
-  }
 
   linkG.selectAll("line").data(links, l=>l.key).join(
-    e=>e.append("line").attr("class","glink"));
+    e=>e.append("line").attr("class","glink").style("opacity",0)
+        .call(s=>s.transition().duration(300).style("opacity",1)));
   labelG.selectAll("text").data(links.filter(l=>l.kind), l=>l.key).join(
-    e=>e.append("text").attr("class","glabel").text(l=>String(l.kind).replace(/_/g," ")));
+    e=>e.append("text").attr("class","glabel").text(l=>String(l.kind).replace(/_/g," "))
+        .style("opacity",0).call(s=>s.transition().duration(300).style("opacity",.5)));
 
   const node = nodeG.selectAll("g.gnode").data(nodes, d=>d.id).join(
     enter=>{
@@ -632,13 +454,16 @@ function renderGraph(g, opts){
       gs.each(function(d){
         const k = kindOf(d), me = d3.select(this);
         if(k.shape === "circle"){
-          me.append("circle").attr("class","body").attr("fill", k.fill).attr("r", k.r);
+          me.append("circle").attr("fill", k.fill).attr("r", 0)
+            .transition().duration(600).ease(d3.easeElasticOut.amplitude(1).period(.55)).attr("r", k.r);
         }else if(k.shape === "diamond"){
-          me.append("rect").attr("class","body").attr("fill", k.fill).attr("rx", 3).attr("transform","rotate(45)")
-            .attr("x",-k.r).attr("y",-k.r).attr("width",k.r*2).attr("height",k.r*2);
+          me.append("rect").attr("fill", k.fill).attr("rx", 3).attr("transform","rotate(45)")
+            .attr("x",-k.r).attr("y",-k.r).attr("width",k.r*2).attr("height",k.r*2)
+            .style("opacity",0).transition().duration(380).style("opacity",1);
         }else{
-          me.append("rect").attr("class","body").attr("fill", k.fill).attr("rx", 5)
-            .attr("x",-k.r).attr("y",-k.r*.8).attr("width",k.r*2).attr("height",k.r*1.6);
+          me.append("rect").attr("fill", k.fill).attr("rx", 5)
+            .attr("x",-k.r).attr("y",-k.r*.8).attr("width",k.r*2).attr("height",k.r*1.6)
+            .style("opacity",0).transition().duration(380).style("opacity",1);
         }
         if(d.kind === "person"){
           me.append("text").attr("class","initials").attr("dy",5).attr("font-size",14).text(initials(d.label));
@@ -647,29 +472,20 @@ function renderGraph(g, opts){
         /* encounter labels are whole sentences — truncate so the canvas stays legible */
         me.append("text").attr("class","nname").attr("dy", k.r + 14)
           .style("font-size", d.kind === "person" ? "12px" : "10.5px")
-          .text(trunc(d.label, d.kind === "person" ? 22 : 26));
+          .text(trunc(d.label, d.kind === "person" ? 22 : 26))
+          .style("opacity",0).transition().delay(130).duration(340).style("opacity",.95);
       });
       gs.call(d3.drag()
-        .on("start",(ev,d)=>{ dragging = true; if(!ev.active) sim.alphaTarget(.25).restart(); d.fx=d.x; d.fy=d.y; })
+        .on("start",(ev,d)=>{ if(!ev.active) sim.alphaTarget(.25).restart(); d.fx=d.x; d.fy=d.y; })
         .on("drag",(ev,d)=>{ d.fx=ev.x; d.fy=ev.y; })
-        .on("end",(ev,d)=>{ dragging = false; if(!ev.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }));
+        .on("end",(ev,d)=>{ if(!ev.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }));
       return gs;
     });
   node.classed("pulsing", d=>!!d.pulse);
-  node.each(function(d){ paintNode(this, d); });
-  /* highlight whatever just arrived, then let the class expire */
-  if(fresh.size){
-    const hot = node.filter(d=>fresh.has(d.id)).classed("newin", true);
-    setTimeout(()=>hot.classed("newin", false), 4800);
-  }
 
   sim.nodes(nodes);
   sim.force("link").links(links);
-  /* a live poll must not re-run the whole layout — nudge it just enough to make
-     room for the newcomers, and leave a settled graph completely alone */
-  const heat = opts.live ? (fresh.size ? .16 : .04) : .55;
-  if(!opts.live || opts.changed !== false) sim.alpha(Math.max(sim.alpha(), heat)).restart();
-  return fresh;
+  sim.alpha(.55).restart();
 }
 function ticked(){
   const pad = 42;
@@ -685,36 +501,25 @@ function ticked(){
 }
 
 /* ---------- roster strip ---------- */
-function rosterPeople(data){
+function renderRoster(data){
   const seen = new Map();
   for(const p of arr(data && data.people)){
     if(!p || !p.name) continue;
-    notePhoto(p);
     const cur = seen.get(p.name);
     /* the walker can return the same person more than once — keep the richest row */
     if(!cur || (p.encounters||0) > (cur.encounters||0)) seen.set(p.name, p);
   }
-  return [...seen.values()].sort((a,b)=>(b.encounters||0)-(a.encounters||0));
-}
-function renderRoster(people, fresh){
-  fresh = fresh || new Set();
+  const people = [...seen.values()].sort((a,b)=>(b.encounters||0)-(a.encounters||0));
   const el = $("roster");
   if(!people.length){ el.innerHTML = '<div class="empty">No one in the roster yet — hit Seed demo.</div>'; return; }
   el.innerHTML = people.map(p=>{
     const meta = [p.role, p.org].filter(Boolean).join(" · ") || (p.relationship || "");
-    const n = p.encounters || 0, un = isPlaceholder(p.name);
-    return `<div class="pcard${un ? " unnamed" : ""}${fresh.has(p.name) ? " newin" : ""}"
-        onclick="openPerson(${jsArg(p.name)})">
-      <div class="row">
-        ${avatarHtml(p.name)}
-        <div class="col">
-          <div class="nm">${p.enrolled_face ? '<i class="face"></i>' : ""}${esc(trunc(p.name, 20))}</div>
-          <div class="og">${esc(trunc(meta, 30)) || "&nbsp;"}</div>
-        </div>
-      </div>
-      <div class="mt">${un ? '<span class="newchip">new · unnamed</span>' : ""}
-        <span class="enc">${n} ${n === 1 ? "encounter" : "encounters"}</span>
-        ${p.enrolled_face && !un ? "<span>face enrolled</span>" : ""}</div>
+    const n = p.encounters || 0;
+    return `<div class="pcard" onclick="openPerson(${jsArg(p.name)})">
+      <div class="nm">${p.enrolled_face ? '<i class="face"></i>' : ""}${esc(p.name)}</div>
+      <div class="og">${esc(trunc(meta, 34)) || "&nbsp;"}</div>
+      <div class="mt"><span class="enc">${n} ${n === 1 ? "encounter" : "encounters"}</span>
+        ${p.enrolled_face ? "<span>face enrolled</span>" : ""}</div>
     </div>`;
   }).join("");
 }
@@ -825,7 +630,7 @@ async function askNetwork(){
 }
 
 /* ---------- contact card slide-over ---------- */
-function closePanel(){ $("panel").classList.remove("open"); $("toasts").classList.remove("shift"); }
+function closePanel(){ $("panel").classList.remove("open"); }
 function mdToHtml(md){
   const out = []; let inList = false, para = [];
   const flushP = ()=>{ if(para.length){ out.push("<p>" + para.join(" ") + "</p>"); para = []; } };
@@ -861,56 +666,10 @@ function lensHtml(r){
     + (lines.length ? `<ul>${lines.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>` : "")
     + `</div>`;
 }
-/* topics / owed / history straight off recall — each block is optional */
-function extrasHtml(r){
-  if(!r || r.found === false) return {html:"", drop:[]};
-  const topics = arr(r.topics).map(t=>String(t)).filter(Boolean);
-  const fups = arr(r.followups).map(f=>String(f)).filter(Boolean);
-  const hist = arr(r.history);
-  let html = "", drop = [];
-  if(topics.length){
-    html += `<div class="sec"><span class="eyebrow">Topics</span><div class="chips">`
-      + topics.map(t=>`<span class="chip">${esc(t)}</span>`).join("") + `</div></div>`;
-    drop.push("discussed", "topics");
-  }
-  if(fups.length){
-    html += `<div class="sec"><span class="eyebrow">You owe</span><ul class="owe">`
-      + fups.map(f=>`<li><span>${esc(f)}</span></li>`).join("") + `</ul></div>`;
-    drop.push("you owe them", "you owe", "follow-ups", "followups");
-  }
-  if(hist.length){
-    /* newest first, and each row may be a plain string in older payloads */
-    const rows = hist.slice().reverse().map(h=>{
-      const when = (h && (h.when || h.ts)) || "";
-      const what = typeof h === "string" ? h : ((h && (h.what || h.summary)) || "");
-      const kind = (h && h.kind) || "";
-      if(!when && !what) return "";
-      return `<li><div class="hw">${esc(fmtTime(when) || when)}${kind ? " · " + esc(kind) : ""}</div>`
-        + `<div class="ht">${esc(what)}</div></li>`;
-    }).filter(Boolean).join("");
-    if(rows){ html += `<div class="sec"><span class="eyebrow">History</span><ol class="hist">${rows}</ol></div>`;
-      drop.push("history", "encounters"); }
-  }
-  return {html, drop};
-}
-/* the dossier repeats sections we just rendered natively — drop those headings */
-function dropSections(md, titles){
-  if(!titles.length) return md;
-  const want = new Set(titles.map(t=>t.toLowerCase()));
-  const out = []; let skip = false;
-  for(const line of String(md == null ? "" : md).split(/\r?\n/)){
-    const h = line.match(/^##\s+(.*)$/);
-    if(h){ skip = want.has(h[1].trim().toLowerCase()); if(skip) continue; }
-    if(!skip) out.push(line);
-  }
-  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-}
 async function openPerson(name){
   if(!name) return;
   $("cardName").textContent = name;
-  paintCardAvatar(name);
   $("panel").classList.add("open");
-  $("toasts").classList.add("shift");
   const body = $("cardBody");
   body.innerHTML = '<div class="shimmer">recalling…</div>';
   /* the lens view (recall) and the full dossier (person_card) are independent —
@@ -919,28 +678,14 @@ async function openPerson(name){
     call("recall", {name}).catch(()=>null),
     call("person_card", {name}).catch(()=>null)
   ]);
-  if(notePhoto(rec) || (rec && rec.name && rec.name !== name && notePhoto({name, photo_b64:rec.photo_b64}))){
-    paintCardAvatar(name);
-    nodeG.selectAll("g.gnode").each(function(d){ if(d.kind === "person") paintNode(this, d); });
-  }
   const lens = lensHtml(rec);
-  const ex = extrasHtml(rec);
   /* the dossier repeats the name/org/headline the lens already shows — when the
      lens rendered, start the markdown at its first section heading instead */
   let src = (card && card.md) || "";
   if(lens && /^##\s/m.test(src)) src = src.slice(src.search(/^##\s/m));
-  src = dropSections(src, ex.drop);
   const md = src ? '<div class="md">' + mdToHtml(src) + "</div>" : "";
-  body.innerHTML = (lens + ex.html + md)
+  body.innerHTML = (lens + md)
     || '<div class="empty">Nothing on file for this contact yet.</div>';
-}
-function paintCardAvatar(name){
-  const el = $("cardAvatar");
-  if(!el) return;
-  const url = photoUrl(name);
-  el.className = "av lg" + (url ? "" : (isPlaceholder(name) ? " dash" : ""));
-  el.innerHTML = url ? `<img alt="" src="${esc(url)}">`
-    : esc(isPlaceholder(name) ? "?" : initials(name));
 }
 document.addEventListener("keydown", e=>{ if(e.key === "Escape") closePanel(); });
 
@@ -974,104 +719,16 @@ function renderTimeline(data){
   }).join("");
 }
 
-/* ---------- live updates ----------
-   The glasses write into the same graph while this is projected, so we re-read
-   every few seconds, diff against what's on screen, and only touch what moved. */
-const POLL_MS = 4000;
-let LIVE = true, polling = false, pollTimer = null, seenOnce = false;
-const KNOWN_PEOPLE = new Set();     // names already on screen
-const KNOWN_EVENTS = new Set();     // ts|text of timeline rows already on screen
-let sigRoster = "", sigGraph = "", sigTimeline = "";
-
-function toast(msg, sub){
-  const wrap = $("toasts");
-  if(!wrap) return;
-  const el = document.createElement("div");
-  el.className = "toast";
-  el.innerHTML = `<span class="tdot"></span><div><div class="tmsg">${esc(msg)}</div>`
-    + (sub ? `<div class="tsub">${esc(sub)}</div>` : "") + `</div>`;
-  wrap.appendChild(el);
-  while(wrap.children.length > 4) wrap.firstChild.remove();
-  setTimeout(()=>{ el.classList.add("out"); setTimeout(()=>el.remove(), 420); }, 4600);
-}
-function toggleLive(){
-  LIVE = !LIVE;
-  $("livePill").classList.toggle("paused", !LIVE);
-  $("liveLabel").textContent = LIVE ? "live" : "paused";
-  $("pauseBtn").textContent = LIVE ? "pause" : "resume";
-  $("pauseBtn").setAttribute("aria-label", LIVE ? "Pause live updates" : "Resume live updates");
-  if(LIVE) refresh({live:true}).catch(()=>{});
-}
-function tick(){
-  if(!LIVE || polling || document.hidden || dragging) return;
-  refresh({live:true}).catch(()=>{});
-}
-
 /* ---------- actions ---------- */
-async function refresh(opts){
-  opts = opts || {};
-  /* a poll in flight never blocks a user-triggered refresh — it just queues */
-  if(polling){
-    if(opts.live) return;
-    for(let i = 0; i < 120 && polling; i++) await new Promise(r=>setTimeout(r, 120));
-  }
-  polling = true;
-  try{
-    const [g, tl, ro] = await Promise.all([
-      call("get_graph", {}, opts.live ? 12000 : 45000).catch(()=>null),
-      call("get_timeline", {}, opts.live ? 12000 : 45000).catch(()=>null),
-      call("Roster", {}, opts.live ? 12000 : 45000).catch(()=>null)
-    ]);
-    const announce = seenOnce;          // never toast the very first load
-    const joined = new Set();
-
-    if(ro){
-      const people = rosterPeople(ro);
-      /* photos can land after a person does, so the signature covers them too */
-      const sig = JSON.stringify(people.map(p=>[p.name, p.role, p.org, p.relationship,
-        p.encounters||0, p.enrolled_face?1:0, PHOTOS.has(p.name)?1:0]));
-      for(const p of people) if(!KNOWN_PEOPLE.has(p.name)) joined.add(p.name);
-      if(sig !== sigRoster){ sigRoster = sig; renderRoster(people, announce ? joined : new Set()); }
-      KNOWN_PEOPLE.clear();
-      for(const p of people) KNOWN_PEOPLE.add(p.name);
-      if(announce && joined.size){
-        const names = [...joined];
-        if(names.length <= 2) for(const n of names)
-          toast(n + " joined your network",
-                isPlaceholder(n) ? "unrecognised face — give them a name" : "new contact");
-        else toast(names.length + " people joined your network", names.slice(0,3).join(", ") + "…");
-      }
-    }
-
-    if(g){
-      const sig = JSON.stringify([arr(g.nodes).map(n=>n && [n.id, n.label, n.kind, n.pulse?1:0]),
-                                  arr(g.links).map(l=>l && [l.source, l.target, l.kind])]);
-      if(sig !== sigGraph || !opts.live){
-        sigGraph = sig;
-        renderGraph(g, {live:!!opts.live, announce, changed:true});
-      }
-    }
-
-    if(tl){
-      const evs = arr(tl.events);
-      const sig = JSON.stringify(evs.map(e=>e && [e.ts, e.kind, e.text]));
-      const added = evs.filter(e=>e && !KNOWN_EVENTS.has((e.ts||"") + "|" + (e.text||"")));
-      if(sig !== sigTimeline){ sigTimeline = sig; renderTimeline(tl); }
-      KNOWN_EVENTS.clear();
-      for(const e of evs) if(e) KNOWN_EVENTS.add((e.ts||"") + "|" + (e.text||""));
-      if(announce && added.length){
-        /* "Ada Okafor - fintech, payments" → who / what */
-        const rows = added.slice(-2).map(e=>{
-          const parts = String(e.text || "").split(" - ");
-          const who = parts.length > 1 ? parts[0] : "";
-          return {who, what: parts.length > 1 ? parts.slice(1).join(" - ") : String(e.text || "")};
-        }).filter(r=>!joined.has(r.who));      // the join toast already covered them
-        for(const r of rows)
-          toast(r.who ? "New interaction with " + r.who : "New interaction", trunc(r.what, 74));
-      }
-    }
-    if(ro || g || tl) seenOnce = true;
-  }finally{ polling = false; }
+async function refresh(){
+  const [g, tl, ro] = await Promise.all([
+    call("get_graph").catch(()=>null),
+    call("get_timeline").catch(()=>null),
+    call("Roster").catch(()=>null)
+  ]);
+  if(g) renderGraph(g);
+  if(tl) renderTimeline(tl);
+  if(ro) renderRoster(ro);
 }
 async function seed(btn){
   btn.disabled = true; btn.classList.add("loading");
@@ -1086,8 +743,6 @@ async function resetAll(btn){
     $("answer").classList.remove("show");
     PROMISES.length = 0; renderOwed();
     closePanel();
-    PHOTOS.clear(); KNOWN_PEOPLE.clear(); KNOWN_EVENTS.clear();
-    sigRoster = sigGraph = sigTimeline = "";
     await refresh();
   }catch(e){ console.warn(e); }
   btn.disabled = false; btn.classList.remove("loading");
@@ -1099,9 +754,6 @@ $("transcript").addEventListener("keydown", e=>{
   if(e.key === "Enter" && (e.metaKey || e.ctrlKey)){ e.preventDefault(); ingest(); }
 });
 refresh().catch(e=>console.warn("Backend unreachable", e));
-/* poll the backend so a person enrolled from the glasses shows up unattended */
-pollTimer = setInterval(tick, POLL_MS);
-document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) tick(); });
 </script>
 </body>
 </html>

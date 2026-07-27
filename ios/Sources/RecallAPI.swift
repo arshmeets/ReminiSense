@@ -81,11 +81,28 @@ struct IngestReceipt: Identifiable {
     let id = UUID()
     let saved: String
     let newPerson: Bool
+    /// Job title. The live walker does NOT report this today (its `ContactInfo`
+    /// has no role field) — it is parsed defensively so that the day the
+    /// backend adds one, the app fills it in without another release.
+    let role: String
     let org: String
     let topics: [String]
     let newTopics: [String]
     let followups: [String]
     let date = Date()
+
+    /// True when the extractor actually named the speaker, as opposed to
+    /// reporting `saved: ""` because nobody introduced themselves.
+    var namedSomeone: Bool {
+        FaceCache.usableRealName(saved) != nil
+    }
+
+    /// The detail worth writing back onto the Person node. `ingest` fills `org`
+    /// itself but never `role`, so a follow-up Enroll is the only way to land
+    /// a title on the node.
+    var hasProfileDetail: Bool {
+        !role.isEmpty || !org.isEmpty
+    }
 }
 
 /// Answer to "ask your network".
@@ -139,6 +156,19 @@ struct TimelineEvent: Identifiable {
 /// minor schema drift degrades instead of crashing the demo.
 enum RecallAPI {
     static let defaultBase = "https://jac.sodhiserver.com"
+
+    /// Send the captured frame a second time as `photo_b64` on Enroll, so the
+    /// Person node carries an avatar the moment the backend grows a field for
+    /// one.
+    ///
+    /// The live `Person` node has no photo field today and the generated
+    /// request model only declares the walker's own `has` fields — but FastAPI
+    /// models ignore unknown keys rather than rejecting them. Verified against
+    /// https://jac.sodhiserver.com: an Enroll carrying an extra `photo_b64`
+    /// returns HTTP 200 with `{"enrolled": true, "dims": 128}` and the key is
+    /// simply dropped. Flip this to `false` if a future deploy tightens the
+    /// schema to `additionalProperties: false` and starts answering 422.
+    static let sendsPhotoOnEnroll = true
 
     static var baseString: String {
         let stored = UserDefaults.standard.string(forKey: "recallBaseURL")?
@@ -268,10 +298,16 @@ enum RecallAPI {
         var body: [String: Any] = ["transcript": transcript]
         if !speaker.isEmpty { body["speaker"] = speaker }
         let payload = try await post("/walker/ingest", body, timeout: 120)
+        let org = str(payload["org"]).isEmpty
+            ? str(payload["company"])
+            : str(payload["org"])
         return IngestReceipt(
             saved: str(payload["saved"]),
             newPerson: (payload["new_person"] as? Bool) ?? false,
-            org: str(payload["org"]),
+            role: str(payload["role"]).isEmpty
+                ? str(payload["title"])
+                : str(payload["role"]),
+            org: org,
             topics: strings(payload["topics"]),
             newTopics: strings(payload["new_topics"]),
             followups: strings(payload["followups"])
@@ -346,18 +382,18 @@ enum RecallAPI {
         relationship: String = "",
         notes: String = ""
     ) async throws -> EnrollOutcome {
-        let payload = try await post(
-            "/walker/Enroll",
-            [
-                "name": name,
-                "frame_b64": photoJpeg.base64EncodedString(),
-                "role": role,
-                "org": org,
-                "relationship": relationship,
-                "notes": notes,
-            ],
-            timeout: 120
-        )
+        let b64 = photoJpeg.base64EncodedString()
+        var body: [String: Any] = [
+            "name": name,
+            "frame_b64": b64,
+            "role": role,
+            "org": org,
+            "relationship": relationship,
+            "notes": notes,
+        ]
+        // The avatar. Ignored by the current backend; see `sendsPhotoOnEnroll`.
+        if sendsPhotoOnEnroll { body["photo_b64"] = b64 }
+        let payload = try await post("/walker/Enroll", body, timeout: 120)
         return EnrollOutcome(
             enrolled: (payload["enrolled"] as? Bool) ?? false,
             name: str(payload["name"]).isEmpty ? name : str(payload["name"]),
