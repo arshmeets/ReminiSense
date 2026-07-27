@@ -34,6 +34,10 @@ glob DET_SCORE: float = 0.5;
 # SFace's published cosine threshold for a same-identity match.
 glob FACE_THRESHOLD: float = 0.363;
 
+# Longest edge for a stored enrolment photo. It is shown at thumbnail size in
+# a list, so anything larger is pure payload.
+glob PHOTO_MAX_EDGE: int = 320;
+
 # Model handles are built once and cached. A dict is used rather than a
 # rebindable glob so the lazy init needs no global reassignment.
 glob _cache: dict = {};
@@ -174,6 +178,44 @@ def cached_card(who: Person, key: str) -> Card | None {
 def store_card(who: Person, key: str, card: Card) -> None {
     who.card_key = key;
     who.card_json = json.dumps({"headline": card.headline, "lines": card.lines});
+}
+
+
+# Enrolment photos are only ever displayed next to a name, so they never need
+# to be larger than a thumbnail. Clients are asked to downscale before upload
+# and one did not: a single 2.6MB frame turned every Roster call into a 5.4MB
+# response. Shrinking here means no client can do that again.
+def thumbnail(jpeg_b64: str) -> str {
+    if jpeg_b64 == "" {
+        return "";
+    }
+    try {
+        raw = base64.b64decode(jpeg_b64);
+        buf: any = np.frombuffer(raw, dtype=np.uint8);
+        img: any = cv2.imdecode(buf, cv2.IMREAD_COLOR);
+        if img is None {
+            return "";
+        }
+        shape: any = img.shape;
+        h: int = int(shape[0]);
+        w: int = int(shape[1]);
+        longest: int = h;
+        if w > h {
+            longest = w;
+        }
+        if longest > PHOTO_MAX_EDGE {
+            scale: float = float(PHOTO_MAX_EDGE) / float(longest);
+            img = cv2.resize(
+                img, (int(float(w) * scale), int(float(h) * scale)),
+                interpolation=cv2.INTER_AREA
+            );
+        }
+        ok: any = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 80]);
+        return base64.b64encode(ok[1].tobytes()).decode();
+    } except Exception {
+        # A photo is a nicety; never fail an enrolment over one.
+        return "";
+    }
 }
 
 
@@ -533,7 +575,7 @@ walker:pub Enroll {
 
         # Keep the frame we enrolled from, so clients have a face to show.
         # A face was detected in it by definition - that is why we got here.
-        person.photo_b64 = self.frame_b64;
+        person.photo_b64 = thumbnail(self.frame_b64);
 
         # Only fill fields the caller actually supplied, so enrolling a face
         # never blanks out detail the conversation already captured.
@@ -1014,6 +1056,36 @@ walker:pub seed_demo(Seed) {}
 
 # Alias for the iOS client and dashboard.
 walker:pub reset_day(Reset) {}
+
+
+walker:pub compact_photos {
+    """Re-thumbnail photos already in the graph. Enrolments made before the
+    server started downscaling left full-resolution frames behind - one 2.6MB
+    photo was enough to make every Roster call a 5.4MB response."""
+
+    has reports: list[dict] = [];
+
+    can shrink with Root entry {
+        saved: int = 0;
+        touched: list[dict] = [];
+        for p in [-->[?:Person]] {
+            before = len(p.photo_b64);
+            if before > 0 {
+                small = thumbnail(p.photo_b64);
+                if small != "" and len(small) < before {
+                    p.photo_b64 = small;
+                    saved += before - len(small);
+                    touched.append({
+                        "name": p.name,
+                        "before_kb": round(before / 1024),
+                        "after_kb": round(len(small) / 1024)
+                    });
+                }
+            }
+        }
+        report {"compacted": touched, "bytes_saved": saved};
+    }
+}
 
 
 walker:pub forget {
