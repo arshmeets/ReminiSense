@@ -1,10 +1,16 @@
-"""ReminiSense - ambient recall over an Object-Spatial graph.
+"""Recall - an AI memory layer over an Object-Spatial graph.
 
-A frame arrives from the wearable. Identity is resolved locally with a face
-embedding (fast, deterministic, offline). The graph supplies the context, and
-`by llm()` turns that context into one short spoken line.
+Two inputs, one graph. A face is resolved locally with an SFace embedding
+(31ms, deterministic, works offline). Speech is transcribed on the device and
+folded in by `ingest`, which extracts who was talking and what about. Both
+write to the same Person node, so recognising someone later retrieves what was
+actually said - not merely that you had met.
 
-Served with:  jac start app.jac --no-client
+`by llm()` is used where language is the problem: cleaning live captions,
+pulling structure out of a transcript, and phrasing the reminder.
+
+Served with:  jac start app.jac --no-client --port 8420
+Deployed at:  https://jac.sodhiserver.com  (auto-deploys on push to main)
 """
 
 import cv2;
