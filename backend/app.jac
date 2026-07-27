@@ -16,6 +16,7 @@ Deployed at:  https://jac.sodhiserver.com  (auto-deploys on push to main)
 import cv2;
 import numpy as np;
 import base64;
+import json;
 import time;
 import from jaclang.byllm.lib { Model, Image }
 
@@ -137,6 +138,45 @@ def same_person(a: str, b: str) -> bool {
 }
 
 
+# A card is only as fresh as the facts it was written from, so fingerprint
+# exactly those. Any change to the person or their history changes the key and
+# the card is rebuilt; otherwise the stored one is reused and no model is
+# called. Deliberately excludes photo_b64 - a new photo does not change what
+# there is to say about someone.
+def card_fingerprint(who: Person, history: str) -> str {
+    return "|".join([
+        who.name, who.role, who.org, who.relationship,
+        ",".join(who.interests), ",".join(who.followups), history
+    ]);
+}
+
+
+# Reuse a person's stored card when the facts behind it have not moved.
+# Returns None when there is nothing usable cached.
+def cached_card(who: Person, key: str) -> Card | None {
+    if who.card_key != key or who.card_json == "" {
+        return None;
+    }
+    try {
+        raw: any = json.loads(who.card_json);
+        lines: list[str] = [];
+        for l in raw["lines"] {
+            lines.append(str(l));
+        }
+        return Card(headline=str(raw["headline"]), lines=lines);
+    } except Exception {
+        # A card written by an older shape is not worth a crash - rebuild it.
+        return None;
+    }
+}
+
+
+def store_card(who: Person, key: str, card: Card) -> None {
+    who.card_key = key;
+    who.card_json = json.dumps({"headline": card.headline, "lines": card.lines});
+}
+
+
 # Cosine similarity between two embeddings; 0.0 if either is empty or mismatched.
 def cosine(a: list[float], b: list[float]) -> float {
     if len(a) == 0 or len(b) == 0 or len(a) != len(b) {
@@ -172,7 +212,13 @@ node Person {
         # The enrolment photo, kept so clients can show a face next to a name.
         # Distinct from face_vec: the vector is what matching uses, this is
         # only ever displayed. Empty for anyone enrolled by voice alone.
-        photo_b64: str = "";
+        photo_b64: str = "",
+        # Memoised recall card. card_key fingerprints the inputs the card was
+        # built from; when it still matches, the stored card is reused and the
+        # LLM call is skipped entirely. Regenerating an unchanged card cost
+        # ~1.8s on every single lookup.
+        card_key: str = "",
+        card_json: str = "";
 }
 
 
@@ -848,13 +894,22 @@ walker:pub recall {
             topics.append(t.label);
         }
 
-        card = recall_card(
-            who.name, who.org, who.relationship,
-            ", ".join(who.interests), ", ".join(who.followups), history
-        );
+        key = card_fingerprint(who, history);
+        hit = cached_card(who, key);
+        card: Card = Card(headline="", lines=[]);
+        if hit is not None {
+            card = hit;
+        } else {
+            card = recall_card(
+                who.name, who.org, who.relationship,
+                ", ".join(who.interests), ", ".join(who.followups), history
+            );
+            store_card(who, key, card);
+        }
 
         report {
             "found": True,
+            "cached": hit is not None,
             "name": who.name,
             "org": who.org,
             "photo_b64": who.photo_b64,
@@ -1084,10 +1139,23 @@ walker:pub person_card {
             topics.append(t.label);
         }
 
-        card = recall_card(
-            who.name, who.org, who.relationship,
-            ", ".join(who.interests), ", ".join(who.followups), history
-        );
+        # `refresh: true` from the client forces a rebuild; otherwise reuse
+        # the same memoised card recall serves, so the panel opens instantly.
+        key = card_fingerprint(who, history);
+        hit: Card | None = None;
+        if not self.refresh {
+            hit = cached_card(who, key);
+        }
+        card: Card = Card(headline="", lines=[]);
+        if hit is not None {
+            card = hit;
+        } else {
+            card = recall_card(
+                who.name, who.org, who.relationship,
+                ", ".join(who.interests), ", ".join(who.followups), history
+            );
+            store_card(who, key, card);
+        }
 
         md: str = "# " + who.name + "\n\n";
         if who.org != "" {

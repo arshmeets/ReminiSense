@@ -144,7 +144,7 @@ test "Roster exposes photo_b64 so clients can render a face" {
     root spawn Seed();
     got = root spawn Roster();
     assert len(got.reports) == 1;
-    people = got.reports[0]["people"];
+    people: list = got.reports[0]["people"];
     assert len(people) > 0;
     for p in people {
         assert "photo_b64" in p;
@@ -172,23 +172,25 @@ test "get_graph emits nodes and links the dashboard can draw" {
     got = root spawn get_graph();
     assert len(got.reports) == 1;
     payload = got.reports[0];
-    assert len(payload["nodes"]) > 0;
+    nodes: list = payload["nodes"];
+    links: list = payload["links"];
+    assert len(nodes) > 0;
 
-    for n in payload["nodes"] {
+    for n in nodes {
         assert "id" in n and "label" in n and "kind" in n;
     }
-    for l in payload["links"] {
+    for l in links {
         assert "source" in l and "target" in l;
     }
 }
 
 test "get_timeline is ordered oldest first" {
     got = root spawn get_timeline();
-    events = got.reports[0]["events"];
+    events: list = got.reports[0]["events"];
     previous: str = "";
     for e in events {
         assert e["ts"] >= previous;
-        previous = e["ts"];
+        previous = str(e["ts"]);
     }
 }
 
@@ -218,7 +220,7 @@ test "caption never leaks prompt text into a caption" {
     # The failure this guards: the model echoing a sem description into the
     # display. Any caption containing prompt vocabulary is a bug, whichever
     # path produced it.
-    leaks = ["captured speech", "speech-to-text from a noisy", "I need actual input", "provide the"];
+    leaks: list[str] = ["captured speech", "speech-to-text from a noisy", "I need actual input", "provide the"];
     for probe in ["hello", "ok", "hey there"] {
         shown = (root spawn caption(text=probe, lang="en")).reports[0]["display_text"];
         for bad in leaks {
