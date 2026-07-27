@@ -25,6 +25,8 @@ struct MeetResult: Identifiable {
     let followups: [String]
     let transcript: String
     let placeholder: Bool
+    /// Which camera produced the frame this pass used.
+    let frameSource: String
     /// The auto-generated name this pass retired, if the conversation finally
     /// told us who the face belongs to.
     let renamedFrom: String
@@ -41,8 +43,10 @@ struct MeetResult: Identifiable {
         followups: [String] = [],
         transcript: String = "",
         placeholder: Bool = false,
-        renamedFrom: String = ""
+        renamedFrom: String = "",
+        frameSource: String = ""
     ) {
+        self.frameSource = frameSource
         self.kind = kind
         self.name = name
         self.role = role
@@ -105,20 +109,29 @@ private struct ResolvedIdentity {
 
 // MARK: - Engine
 
-/// The one-tap loop: frame → speech → recognise → (auto-enrol on a miss) →
-/// ingest → lens + ear + app.
+/// The one-tap loop: speech (+ frame, concurrently) → recognise → (auto-enrol
+/// on a miss) → ingest → lens + ear + app.
 ///
 /// It lives outside the view so auto-repeat survives a tab switch and so the
-/// ordering guarantees stay in one place. The ordering matters: the camera runs
-/// to completion BEFORE the microphone opens, which is what stops the two
-/// contending for the audio route.
+/// ordering guarantees stay in one place.
+///
+/// The microphone opens FIRST and the frame is grabbed alongside it. Taking the
+/// photo first cost a couple of seconds before anyone was being listened to,
+/// which is exactly where "hi, I'm Sam" lands — the words that matter most were
+/// the ones being dropped. The camera can't fight the mic for the route because
+/// `PhoneCameraFallback` never touches the audio session and the recognition
+/// task runs off an already-primed engine.
+///
+/// A frame that never arrives no longer aborts anything: the conversation is
+/// still transcribed and still ingested.
 @MainActor
 final class MeetEngine: ObservableObject {
     static let shared = MeetEngine()
 
     enum Phase: Equatable {
         case idle
-        case framing
+        // There is no `framing` phase any more — the frame is taken alongside
+        // the conversation, never in front of it.
         case listening
         case thinking
 
@@ -130,12 +143,14 @@ final class MeetEngine: ObservableObject {
     @Published private(set) var results: [MeetResult] = []
     @Published private(set) var lastCapture: UIImage?
     @Published private(set) var errorText: String?
-    @Published private(set) var secondsLeft = 0
     @Published var autoRepeat = false {
         didSet { autoRepeat ? startAutoLoop() : stopAutoLoop() }
     }
-    /// How long to listen for, in seconds.
-    @Published var listenSeconds: Double = 8
+    /// Trailing silence that ends a turn. Tunable on stage from the Meet panel;
+    /// the shipped default is `TurnTiming.trailingSilence`.
+    @Published var trailingSilence: Double = TurnTiming.trailingSilence
+    /// Which camera produced the frame for the pass in flight.
+    @Published private(set) var frameSource = ""
 
     private let dictation = DictationManager.shared
     private var autoTask: Task<Void, Never>?
@@ -180,51 +195,42 @@ final class MeetEngine: ObservableObject {
 
     // MARK: The loop
 
+    /// Ends the current turn right now. The user is never trapped waiting for
+    /// silence they can't produce.
+    func finishListening() {
+        guard phase == .listening else { return }
+        dictation.stop()
+    }
+
     func runOnce() async {
         guard !phase.isBusy, let glasses else { return }
         errorText = nil
-
-        // 1 — one frame. Camera first, microphone afterwards: never both.
-        phase = .framing
-        statusLine = "Taking a frame…"
+        frameSource = ""
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-
-        guard
-            let image = await glasses.capturePhoto(),
-            let jpeg = image.jpegData(compressionQuality: 0.7)
-        else {
-            phase = .idle
-            statusLine = "Tap once. Recall does the rest."
-            errorText = "Couldn't take a photo — check the camera source in Connect."
-            await ReminiCards.shared.showGuidance(
-                "No frame from the camera. Check the Connect tab."
-            )
-            return
-        }
-        lastCapture = image
 
         // Anything the Listen pipeline already captured this session, in case
         // they introduced themselves before the tap.
         let carried = dictation.transcript
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // 2 — listen. The engine and its tap are already running; this only
-        // opens a recognition task, so there is nothing for the camera to fight.
-        phase = .listening
-        let window = listenSeconds
-        secondsLeft = Int(window)
-        statusLine = "Listening — let them introduce themselves."
-        let ticker = Task { @MainActor [weak self] in
-            var left = Int(window)
-            while left > 0, !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                left -= 1
-                self?.secondsLeft = max(0, left)
-            }
+        // 1 — the frame, in the background, starting now. Nothing below waits on
+        // it until the conversation is over, and a failure here is not fatal.
+        let frameTask = Task { @MainActor [weak self] () -> Data? in
+            let image = await glasses.capturePhoto()
+            self?.frameSource = glasses.lastFrameSource
+            guard let image, let jpeg = image.jpegData(compressionQuality: 0.7)
+            else { return nil }
+            self?.lastCapture = image
+            return jpeg
         }
-        let fresh = await dictation.record(seconds: window)
-        ticker.cancel()
-        secondsLeft = 0
+
+        // 2 — listen, for exactly as long as they talk. The engine and its tap
+        // are already running; this only opens a recognition task.
+        phase = .listening
+        statusLine = "Listening — let them introduce themselves."
+        let fresh = await dictation.recordUntilSilence(
+            trailingSilence: trailingSilence
+        )
 
         var transcript = fresh
         if transcript.isEmpty, !carried.isEmpty, carried != lastConsumedTranscript {
@@ -240,9 +246,15 @@ final class MeetEngine: ObservableObject {
                 + "on screen(\(dictation.transcript.count))=\"\(dictation.transcript)\""
         )
 
-        // 3 — who is it?
+        // 3 — who is it? Only now do we need the picture.
         phase = .thinking
         statusLine = "Matching against your network…"
+        guard let jpeg = await frameTask.value else {
+            await handleFrameless(transcript: transcript)
+            phase = .idle
+            return
+        }
+
         do {
             let recognition = try await RecallAPI.recognize(jpeg: jpeg)
             if recognition.matched, !recognition.name.isEmpty {
@@ -264,6 +276,58 @@ final class MeetEngine: ObservableObject {
 
         phase = .idle
         if errorText == nil { statusLine = "Tap once. Recall does the rest." }
+    }
+
+    // MARK: No frame
+
+    /// The camera came back empty. This used to abort the pass before the
+    /// microphone had even opened; now the conversation has already happened, so
+    /// the only thing missing is the face — ingest what was said and say plainly
+    /// which part failed.
+    private func handleFrameless(transcript: String) async {
+        let blocked = glasses?.cameraBlocked ?? false
+        errorText = blocked
+            ? "Camera access is off for Recall — Settings › Recall › Camera."
+            : "No frame from the camera — what they said was still saved."
+        statusLine = blocked ? "Camera access is off." : "No frame — kept the conversation."
+
+        var receipt: IngestReceipt?
+        if !transcript.isEmpty {
+            receipt = try? await RecallAPI.ingest(transcript: transcript)
+        }
+        let named = FaceCache.usableRealName(receipt?.saved ?? "") ?? ""
+
+        var lines: [String] = []
+        if transcript.isEmpty {
+            lines.append("Nothing was said either — tap Meet and try again.")
+        } else if named.isEmpty {
+            lines.append("What they said was saved to the graph.")
+        } else {
+            lines.append("Saved to \(named) — the face wasn't captured, so enroll them from Network.")
+        }
+        if blocked {
+            lines.append("Turn on Camera for Recall in Settings, then tap Meet again.")
+        }
+
+        results.append(
+            MeetResult(
+                kind: .guidance,
+                name: blocked ? "Camera is off for Recall" : "No frame — conversation kept",
+                headline: blocked
+                    ? "iOS is blocking the camera, so there was no face to match."
+                    : "The camera didn't return a frame.",
+                lines: lines,
+                topics: receipt?.topics ?? [],
+                followups: receipt?.followups ?? [],
+                transcript: transcript,
+                frameSource: frameSource
+            )
+        )
+        await ReminiCards.shared.showGuidance(
+            blocked
+                ? "Camera is off for Recall — the conversation was still saved."
+                : "No frame — the conversation was still saved."
+        )
     }
 
     // MARK: Branches
@@ -349,7 +413,8 @@ final class MeetEngine: ObservableObject {
                 followups: followups,
                 transcript: transcript,
                 placeholder: who.isPlaceholder,
-                renamedFrom: who.renamedFrom
+                renamedFrom: who.renamedFrom,
+                frameSource: frameSource
             )
         )
         statusLine = renamed
@@ -512,7 +577,8 @@ final class MeetEngine: ObservableObject {
                             ],
                         topics: receipt?.topics ?? [],
                         followups: receipt?.followups ?? [],
-                        transcript: transcript
+                        transcript: transcript,
+                        frameSource: frameSource
                     )
                 )
                 await ReminiCards.shared.showGuidance(outcome.friendlyReason)
@@ -574,7 +640,8 @@ final class MeetEngine: ObservableObject {
                     followups: receipt?.followups ?? [],
                     transcript: transcript,
                     placeholder: isPlaceholder,
-                    renamedFrom: who.renamedFrom
+                    renamedFrom: who.renamedFrom,
+                    frameSource: frameSource
                 )
             )
             statusLine = outcome.attachedToExisting
@@ -634,11 +701,17 @@ struct MeetView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 16)
 
+                    if engine.phase == .listening {
+                        turnPanel
+                    }
                     controls
                     livePanel
 
                     if !dictation.isUsable {
                         permissionPanel
+                    }
+                    if glasses.cameraBlocked {
+                        cameraPermissionPanel
                     }
                     if let error = engine.errorText ?? dictation.errorText {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -663,6 +736,7 @@ struct MeetView: View {
         .onAppear {
             engine.bind(glasses: glasses, speech: speech)
             DictationManager.shared.prime()
+            glasses.refreshCameraAuth()
         }
     }
 
@@ -734,10 +808,11 @@ struct MeetView: View {
                         .font(.system(size: 38, weight: .medium))
                     Text(buttonTitle)
                         .font(.rcDisplay(23, .bold))
-                    if engine.phase == .listening, engine.secondsLeft > 0 {
-                        Text("\(engine.secondsLeft)s")
+                    if engine.phase == .listening {
+                        Text(String(format: "%.0fs", dictation.captureElapsed))
                             .font(.system(size: 14, weight: .semibold))
                             .opacity(0.85)
+                            .monospacedDigit()
                     }
                 }
                 .foregroundStyle(.white)
@@ -754,7 +829,6 @@ struct MeetView: View {
     private var buttonIcon: String {
         switch engine.phase {
         case .idle: return "person.crop.circle.badge.questionmark"
-        case .framing: return "camera.fill"
         case .listening: return "waveform"
         case .thinking: return "sparkles"
         }
@@ -763,7 +837,6 @@ struct MeetView: View {
     private var buttonTitle: String {
         switch engine.phase {
         case .idle: return "Meet"
-        case .framing: return "Framing"
         case .listening: return "Listening"
         case .thinking: return "Recalling"
         }
@@ -793,17 +866,90 @@ struct MeetView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    SectionLabel("Listen window")
+                    SectionLabel("End after silence")
                     Spacer()
-                    Text("\(Int(engine.listenSeconds))s")
+                    Text(String(format: "%.1fs", engine.trailingSilence))
                         .font(.rcLabel)
                         .foregroundStyle(Color.rcTextDim)
+                        .monospacedDigit()
                 }
-                Slider(value: $engine.listenSeconds, in: 4...20, step: 1)
+                Slider(value: $engine.trailingSilence, in: 1.5...3.0, step: 0.1)
                     .tint(.rcAccent)
+                Text("Recall listens for as long as they keep talking, then stops after this much quiet. Never under \(Int(TurnTiming.hardFloor))s, never over \(Int(TurnTiming.hardCeiling))s.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.rcTextDim)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .panel()
+    }
+
+    // MARK: Live turn state
+
+    /// What the capture is doing, second by second — the answer to "how does it
+    /// know how long the conversation is going for".
+    private var turnPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(dictation.voiceActive ? Color.rcAccent : Color.rcTextDim)
+                    .frame(width: 8, height: 8)
+                    .animation(.easeOut(duration: 0.15), value: dictation.voiceActive)
+                Text(dictation.turnStateLine)
+                    .font(.rcBodyMedium)
+                    .foregroundStyle(
+                        dictation.voiceActive ? Color.rcAccent : Color.rcText
+                    )
+                Spacer()
+                Text(String(format: "%.1fs", dictation.captureElapsed))
+                    .font(.rcLabel)
+                    .foregroundStyle(Color.rcTextDim)
+                    .monospacedDigit()
+            }
+
+            levelMeter
+
+            if dictation.heardSpeech, !dictation.voiceActive {
+                // The countdown to the end of the turn, visible while it runs.
+                ProgressView(
+                    value: max(0, engine.trailingSilence - dictation.silenceRemaining),
+                    total: engine.trailingSilence
+                )
+                .tint(.rcAlert)
+                .animation(.linear(duration: 0.12), value: dictation.silenceRemaining)
+            }
+
+            Button {
+                engine.finishListening()
+            } label: {
+                Label("Done — I'm finished talking", systemImage: "checkmark.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(GhostButtonStyle(tint: .rcAccent))
+        }
+        .panel()
+    }
+
+    /// Straight off the RMS the input tap already computes, with the gate that
+    /// decides speech-vs-silence drawn on it.
+    private var levelMeter: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.rcSurfaceHi)
+                Capsule()
+                    .fill(dictation.voiceActive ? Color.rcAccent : Color.rcTextDim)
+                    .frame(width: max(3, width * dictation.level))
+                    .animation(.easeOut(duration: 0.08), value: dictation.level)
+                Rectangle()
+                    .fill(Color.rcAlert.opacity(0.7))
+                    .frame(width: 1.5)
+                    .offset(x: width * min(1, dictation.voiceGate))
+            }
+        }
+        .frame(height: 10)
+        .accessibilityLabel("Microphone level")
     }
 
     // MARK: Live transcript
@@ -861,6 +1007,29 @@ struct MeetView: View {
                 }
             }
             .buttonStyle(GhostButtonStyle(tint: .rcAccent))
+        }
+        .panel()
+    }
+
+    /// A denied camera is stated outright — it used to surface as the generic
+    /// "Couldn't take a photo", which sent people looking in the wrong place.
+    private var cameraPermissionPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("Camera", icon: "exclamationmark.triangle.fill")
+            Text(glasses.cameraAuthSummary)
+                .font(.rcCaption)
+                .foregroundStyle(Color.rcAlert)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Recall can still hear and save the conversation, but it can't match or add a face until the camera is on.")
+                .font(.system(size: 12))
+                .foregroundStyle(Color.rcTextDim)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .buttonStyle(GhostButtonStyle(tint: .rcAlert))
         }
         .panel()
     }
@@ -1014,9 +1183,16 @@ struct MeetResultCard: View {
                 .tint(.rcTextDim)
             }
 
-            Text(result.date, style: .time)
-                .font(.system(size: 12))
-                .foregroundStyle(Color.rcTextDim)
+            HStack(spacing: 6) {
+                Text(result.date, style: .time)
+                if !result.frameSource.isEmpty {
+                    Text("·")
+                    Label(result.frameSource, systemImage: "camera")
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(Color.rcTextDim)
         }
         .panel()
     }

@@ -3,6 +3,31 @@ import Combine
 import Foundation
 import Speech
 
+/// Every number that decides how long Recall listens for. All of it lives here
+/// so it can be tuned in one place between demo runs.
+///
+/// The rule these encode: a capture ends when the *person* stops talking, not
+/// when a timer expires. A fixed window is wrong in both directions — it cuts a
+/// long introduction in half and it makes a two-word "hi, I'm Sam" wait around.
+enum TurnTiming {
+    /// Trailing quiet that ends a turn, once anything at all has been heard.
+    static let trailingSilence: Double = 2.0
+    /// A capture never ends before this, so a beat of hesitation at the start
+    /// isn't mistaken for the end of the sentence.
+    static let hardFloor: Double = 3.0
+    /// A capture never runs past this, whatever the room sounds like.
+    static let hardCeiling: Double = 45.0
+    /// If literally nothing is heard, give up here rather than at the ceiling.
+    static let silentStartTimeout: Double = 9.0
+    /// Level (0…1, as reported by the input tap) below which a buffer counts as
+    /// silence. The floor of the adaptive gate.
+    static let voiceFloor: Double = 0.075
+    /// The gate sits this far above the measured room noise.
+    static let noiseGateMultiple: Double = 2.5
+    /// How often the turn loop re-evaluates.
+    static let tick: Double = 0.1
+}
+
 /// Live speech-to-text over SFSpeechRecognizer + AVAudioEngine.
 ///
 /// This is a single shared instance because the audio engine and its input tap
@@ -77,8 +102,19 @@ final class DictationManager: ObservableObject {
     @Published private(set) var partial = ""
     @Published private(set) var isRecording = false
     @Published private(set) var errorText: String?
-    /// Rough input level 0…1, for the pulsing mic.
+    /// Rough input level 0…1, for the pulsing mic and the level meter.
     @Published private(set) var level: Double = 0
+    /// True once this turn has heard actual speech — the trailing-silence timer
+    /// is meaningless before it flips.
+    @Published private(set) var heardSpeech = false
+    /// True while the level is above the gate right now.
+    @Published private(set) var voiceActive = false
+    /// Seconds of quiet still owed before the turn ends. Counts down on screen.
+    @Published private(set) var silenceRemaining: Double = TurnTiming.trailingSilence
+    /// How long this turn has been running.
+    @Published private(set) var captureElapsed: Double = 0
+    /// Why the last turn ended, in words, for the status line and the log.
+    @Published private(set) var endReason = ""
     /// Non-nil once permissions have been asked for at launch.
     @Published private(set) var speechAuth: SFSpeechRecognizerAuthorizationStatus = .notDetermined
     @Published private(set) var micGranted = false
@@ -104,6 +140,12 @@ final class DictationManager: ObservableObject {
     private var rollingOver = false
     private var usedOnDeviceForThisTask = false
     private var retriedOnNetwork = false
+    /// Last moment the input was above the gate. The end-of-turn detector is
+    /// nothing more than "how long ago was this".
+    private var lastVoiceAt = Date()
+    /// Running estimate of the room, adapted only while it is quiet so a talker
+    /// can never raise the gate above their own voice.
+    private var noiseFloor: Double = 0
 
     /// Identifies the recognition task whose results are allowed to touch the
     /// text. Bumped every time a task is created or torn down.
@@ -212,7 +254,11 @@ final class DictationManager: ObservableObject {
                 // main actor.
                 let live = sink.append(buffer)
                 let peak = Self.peak(of: buffer)
-                Task { @MainActor in self?.level = live ? peak : 0 }
+                // One audio path, two consumers: the recognizer gets the
+                // samples, the main actor gets the level — which is also the
+                // whole of the end-of-turn detector. No second tap, no second
+                // engine.
+                Task { @MainActor in self?.observe(level: peak, live: live) }
             }
             tapInstalled = true
         }
@@ -396,6 +442,7 @@ final class DictationManager: ObservableObject {
         guard isRecording else { return transcript }
         isRecording = false
         level = 0
+        voiceActive = false
         watchdog?.cancel()
         watchdog = nil
         sink.close()
@@ -418,12 +465,129 @@ final class DictationManager: ObservableObject {
         request = nil
         task = nil
         level = 0
+        voiceActive = false
         // Hard teardown: nothing this task still delivers may touch the text.
         epoch += 1
     }
 
-    /// Record for a fixed window and hand back what was said. This is what the
-    /// one-tap Meet flow uses: no press-and-hold, no way to forget to release.
+    // MARK: End of turn
+
+    /// The level a buffer has to clear to count as speech: a fixed floor, lifted
+    /// above whatever the room is doing.
+    var voiceGate: Double {
+        max(TurnTiming.voiceFloor, noiseFloor * TurnTiming.noiseGateMultiple)
+    }
+
+    /// Called for every input buffer, on the main actor. Publishes the level and
+    /// maintains the two facts the turn loop reads: has anyone spoken, and when.
+    private func observe(level value: Double, live: Bool) {
+        let heard = live ? value : 0
+        level = heard
+        guard live, isRecording else {
+            if voiceActive { voiceActive = false }
+            return
+        }
+        if heard >= voiceGate {
+            lastVoiceAt = Date()
+            heardSpeech = true
+            if !voiceActive { voiceActive = true }
+        } else {
+            if voiceActive { voiceActive = false }
+            // Adapt the floor only during quiet; 47 buffers a second means this
+            // settles on the room in well under a second.
+            noiseFloor = noiseFloor * 0.97 + heard * 0.03
+        }
+    }
+
+    /// One line describing what the capture is doing right now, for the UI.
+    var turnStateLine: String {
+        guard isRecording else { return endReason.isEmpty ? "Ready." : "Ended — \(endReason)." }
+        if !heardSpeech { return "Listening…" }
+        if voiceActive { return "Still listening — they're talking" }
+        return String(format: "Wrapping up… %.1fs", silenceRemaining)
+    }
+
+    /// Record until the person actually stops talking.
+    ///
+    /// Replaces the fixed window that was cutting long introductions in half and
+    /// making short ones wait. The turn ends on `trailingSilence` seconds of
+    /// quiet after any speech, and is bounded at both ends: never shorter than
+    /// `floor` (an early pause is not the end of a sentence) and never longer
+    /// than `ceiling` (nothing hangs on stage). A `stop()` from anywhere — the
+    /// Done button — ends it immediately.
+    ///
+    /// Two independent activity signals feed it, so a mis-tuned gate cannot
+    /// strand the capture: the level from the audio tap, and new words arriving
+    /// from the recognizer.
+    func recordUntilSilence(
+        trailingSilence: Double = TurnTiming.trailingSilence,
+        floor: Double = TurnTiming.hardFloor,
+        ceiling: Double = TurnTiming.hardCeiling,
+        keepExisting: Bool = false
+    ) async -> String {
+        heardSpeech = false
+        voiceActive = false
+        noiseFloor = 0
+        captureElapsed = 0
+        silenceRemaining = trailingSilence
+        endReason = ""
+
+        await start(keepExisting: keepExisting)
+        guard isRecording else { return "" }
+
+        let began = Date()
+        lastVoiceAt = began
+        var lastLength = transcript.count
+        var reason = "the \(Int(ceiling))s ceiling"
+
+        while isRecording {
+            try? await Task.sleep(for: .seconds(TurnTiming.tick))
+            let now = Date()
+            captureElapsed = now.timeIntervalSince(began)
+
+            // Words landing from the recognizer are activity too — this is the
+            // backstop for a talker quieter than the gate.
+            if transcript.count > lastLength {
+                lastLength = transcript.count
+                lastVoiceAt = now
+                heardSpeech = true
+            }
+
+            let silence = now.timeIntervalSince(lastVoiceAt)
+            silenceRemaining = heardSpeech
+                ? max(0, trailingSilence - silence)
+                : trailingSilence
+
+            if captureElapsed >= ceiling { break }
+            if !heardSpeech, captureElapsed >= TurnTiming.silentStartTimeout {
+                reason = "nobody spoke"
+                break
+            }
+            if heardSpeech, captureElapsed >= floor, silence >= trailingSilence {
+                reason = String(format: "%.1fs of silence", trailingSilence)
+                break
+            }
+        }
+
+        // Every break above leaves the recorder running; the only way it can be
+        // stopped already is somebody tapping Done.
+        let stoppedByHand = !isRecording
+        stop()
+        endReason = stoppedByHand ? "you tapped Done" : reason
+        print(
+            "[recall] turn ended after \(String(format: "%.1f", captureElapsed))s — \(endReason)"
+        )
+        silenceRemaining = 0
+        voiceActive = false
+        // The recognizer keeps refining for a beat after endAudio(); give it a
+        // short grace window so the last few words make it in.
+        try? await Task.sleep(for: .milliseconds(700))
+        return seal()
+    }
+
+    /// Record for a fixed window and hand back what was said. Kept for the
+    /// Capture/Listen paths that want a bounded clip; Meet uses
+    /// `recordUntilSilence` instead.
     func record(seconds: Double, keepExisting: Bool = false) async -> String {
         await start(keepExisting: keepExisting)
         guard isRecording else { return "" }

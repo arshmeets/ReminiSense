@@ -28,6 +28,7 @@ struct ConnectView: View {
             .recallScreen()
             .navigationTitle("Connect")
             .navigationBarTitleDisplayMode(.large)
+            .onAppear { glasses.refreshCameraAuth() }
         }
     }
 
@@ -217,6 +218,47 @@ struct ConnectView: View {
 
     private var cameraCard: some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                SectionLabel("Camera", icon: "camera.fill")
+                Spacer()
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(glasses.cameraBlocked ? Color.rcAlert : Color.rcAccent)
+                        .frame(width: 7, height: 7)
+                    Text(glasses.cameraBlocked ? "blocked" : "ready")
+                        .font(.rcLabel)
+                        .foregroundStyle(
+                            glasses.cameraBlocked ? Color.rcAlert : Color.rcAccent
+                        )
+                }
+            }
+
+            Text(glasses.cameraAuthSummary)
+                .font(.rcCaption)
+                .foregroundStyle(glasses.cameraBlocked ? Color.rcAlert : Color.rcText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if glasses.cameraBlocked {
+                Text("iOS is refusing the camera, so Meet will hear the conversation and save it, but can't match or add a face.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.rcTextDim)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .buttonStyle(GhostButtonStyle(tint: .rcAlert))
+            }
+
+            if !glasses.lastFrameSource.isEmpty {
+                Text("Last frame came from the \(glasses.lastFrameSource).")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Color.rcTextDim)
+            }
+
+            Divider().overlay(Color.rcLine)
+
             Toggle(isOn: $usePhoneCamera) {
                 Label("Force the iPhone camera", systemImage: "iphone")
                     .font(.rcBodyMedium)

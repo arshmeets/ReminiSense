@@ -19,8 +19,19 @@ extension DateFormatter {
 /// so the capture loop always works.
 @MainActor
 final class GlassesManager: ObservableObject {
+    /// How long a glasses photo gets before we stop waiting and use the phone.
+    /// Twelve seconds was long enough to stall a whole demo on a dead stream.
+    static let glassesPhotoTimeout: Double = 4
+
     @Published var isConnected = false
     @Published var displayReady = false
+    /// Which camera actually produced the last frame — shown on the result card
+    /// so "it used the phone" is visible rather than inferred.
+    @Published private(set) var lastFrameSource = ""
+    /// iOS camera permission, so a denial is stated instead of surfacing as
+    /// "couldn't take a photo".
+    @Published private(set) var cameraAuth: AVAuthorizationStatus =
+        AVCaptureDevice.authorizationStatus(for: .video)
     @Published var statusText = "Glasses: not connected" {
         didSet { print("[reminisense] \(statusText)") }
     }
@@ -284,20 +295,48 @@ final class GlassesManager: ObservableObject {
         statusText = "Glasses: not connected"
     }
 
+    // MARK: Camera permission
+
+    var cameraBlocked: Bool {
+        cameraAuth == .denied || cameraAuth == .restricted
+    }
+
+    /// Plain-English camera state for the Meet and Connect panels.
+    var cameraAuthSummary: String {
+        switch cameraAuth {
+        case .authorized: return "Camera: allowed"
+        case .denied: return "Camera: DENIED — Settings › Recall › Camera"
+        case .restricted: return "Camera: restricted on this device"
+        case .notDetermined: return "Camera: not asked yet"
+        @unknown default: return "Camera: unknown"
+        }
+    }
+
+    func refreshCameraAuth() {
+        cameraAuth = AVCaptureDevice.authorizationStatus(for: .video)
+    }
+
     /// Photo from the glasses camera when connected; phone camera when the
-    /// fallback toggle is on or no glasses are available.
+    /// fallback toggle is on, no glasses are available, or the glasses camera
+    /// doesn't deliver.
+    ///
+    /// There is no path here that returns nil while a working camera exists. A
+    /// refused `capturePhoto`, a stream that never delivers, and a throw from
+    /// `ensureStream` all fall through to the phone — a dead glasses stream
+    /// costs \(Self.glassesPhotoTimeout)s, not the capture.
     func capturePhoto() async -> UIImage? {
         defer {
             // A capture can nudge the audio route; re-assert (never deactivate)
             // so live transcription survives taking a photo.
             AudioSessionController.shared.reassert()
         }
+        refreshCameraAuth()
         guard isConnected, !forcePhoneCamera, let session else {
-            return await phoneFallback.capture()
+            return await phoneCapture()
         }
         do {
             let stream = try ensureStream(session: session)
-            return await withCheckedContinuation { continuation in
+            let image: UIImage? = await withCheckedContinuation { continuation in
                 photoContinuation = continuation
                 if !stream.capturePhoto(format: .jpeg) {
                     photoContinuation = nil
@@ -306,17 +345,37 @@ final class GlassesManager: ObservableObject {
                 }
                 // Photo arrives on photoDataPublisher; guard with a timeout.
                 Task { @MainActor [weak self] in
-                    try? await Task.sleep(for: .seconds(12))
+                    try? await Task.sleep(for: .seconds(Self.glassesPhotoTimeout))
                     if let pending = self?.photoContinuation {
                         self?.photoContinuation = nil
                         pending.resume(returning: nil)
                     }
                 }
             }
+            if let image {
+                lastFrameSource = "glasses camera"
+                log("frame from the glasses camera")
+                return image
+            }
+            log("glasses camera returned nothing — falling back to the phone")
+            statusText = "Glasses camera gave no frame — used the iPhone camera."
+            return await phoneCapture()
         } catch {
             statusText = "Glasses: \(error.localizedDescription)"
-            return await phoneFallback.capture()
+            log("glasses stream failed (\(error.localizedDescription)) — falling back to the phone")
+            return await phoneCapture()
         }
+    }
+
+    private func phoneCapture() async -> UIImage? {
+        let image = await phoneFallback.capture()
+        // The prompt may have been answered during that call.
+        refreshCameraAuth()
+        lastFrameSource = image == nil ? "no camera" : "iPhone camera"
+        if image == nil {
+            log("iPhone camera returned nothing (\(cameraAuthSummary))")
+        }
+        return image
     }
 
     private func ensureStream(
