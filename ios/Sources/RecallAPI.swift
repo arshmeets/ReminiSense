@@ -297,6 +297,12 @@ enum RecallAPI {
     ) async throws -> IngestReceipt {
         var body: [String: Any] = ["transcript": transcript]
         if !speaker.isEmpty { body["speaker"] = speaker }
+        // The exact bytes going to the graph, logged at the boundary so the
+        // on-screen text can be checked against what was actually posted.
+        print(
+            "[recall] POST /walker/ingest speaker=\"\(speaker)\" "
+                + "transcript(\(transcript.count) chars)=\"\(transcript)\""
+        )
         let payload = try await post("/walker/ingest", body, timeout: 120)
         let org = str(payload["org"]).isEmpty
             ? str(payload["company"])
