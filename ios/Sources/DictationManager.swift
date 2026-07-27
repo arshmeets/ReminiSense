@@ -105,6 +105,19 @@ final class DictationManager: ObservableObject {
     private var usedOnDeviceForThisTask = false
     private var retriedOnNetwork = false
 
+    /// Identifies the recognition task whose results are allowed to touch the
+    /// text. Bumped every time a task is created or torn down.
+    ///
+    /// This is the guard that makes the transcript append-only. A finished task
+    /// keeps delivering for a while after `finish()` — over the network on bad
+    /// Wi-Fi that can be seconds — and its `bestTranscription` is cumulative
+    /// *for that task only*. Without an epoch check, that late delivery
+    /// assigned an old, already-committed string over `partial` and the live
+    /// text on screen was replaced by a stale one: the "it was there and then
+    /// it got overwritten" report. Results from any epoch but the current one
+    /// are now dropped.
+    private var epoch = 0
+
     private init() {
         routeObserver = AudioSessionController.shared.$routeGeneration
             .dropFirst()
@@ -313,13 +326,23 @@ final class DictationManager: ObservableObject {
         partial = ""
         diagnostic = "mic: listening (\(onDevice ? "on-device" : "network"))"
 
+        // Only this task may write the text from here on. A rollover or a stop
+        // bumps the epoch, which retires every result still in flight from the
+        // task being replaced.
+        epoch += 1
+        let myEpoch = epoch
+
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             let text = result?.bestTranscription.formattedString
             let isFinal = result?.isFinal ?? false
             let failure = error
             Task { @MainActor in
-                guard let self else { return }
-                if let text {
+                guard let self, self.epoch == myEpoch else { return }
+                if let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    // Assigning is right: `text` is this task's whole output so
+                    // far, and everything from earlier tasks already sits in
+                    // `committed`. An empty result never lands, so a recognizer
+                    // hiccup can't blank the line the user is watching.
                     self.partial = text
                     self.recomputeTranscript()
                 }
@@ -389,6 +412,8 @@ final class DictationManager: ObservableObject {
         request = nil
         task = nil
         level = 0
+        // Hard teardown: nothing this task still delivers may touch the text.
+        epoch += 1
     }
 
     /// Record for a fixed window and hand back what was said. This is what the
@@ -400,15 +425,33 @@ final class DictationManager: ObservableObject {
         while isRecording, Date() < deadline {
             try? await Task.sleep(for: .milliseconds(120))
         }
-        let text = stop()
+        stop()
         // The recognizer keeps refining for a beat after endAudio(); give it a
         // short grace window so the last few words make it in.
         try? await Task.sleep(for: .milliseconds(700))
-        return transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? text : transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        return seal()
+    }
+
+    /// Freeze what was heard.
+    ///
+    /// The grace window is over, so the live partial becomes committed text and
+    /// every result still in flight is retired. After this the string cannot
+    /// change until the next capture starts — which is what makes "the text you
+    /// watched appear is exactly the text that gets posted" true rather than
+    /// merely likely.
+    @discardableResult
+    func seal() -> String {
+        epoch += 1
+        commitPartial()
+        let text = committed.trimmingCharacters(in: .whitespacesAndNewlines)
+        committed = text
+        recomputeTranscript()
+        print("[recall] transcript sealed (\(text.count) chars): \"\(text)\"")
+        return text
     }
 
     func reset() {
+        epoch += 1
         committed = ""
         partial = ""
         transcript = ""
@@ -417,6 +460,9 @@ final class DictationManager: ObservableObject {
 
     /// Lets the demo run in the simulator, or after a mic mishap, by typing.
     func setTranscript(_ text: String) {
+        // Retire anything in flight, or a late result would overwrite what was
+        // just typed in.
+        epoch += 1
         committed = text
         partial = ""
         recomputeTranscript()
@@ -446,12 +492,18 @@ final class DictationManager: ObservableObject {
         sink.close()
         request?.endAudio()
         task?.finish()
+        // Retire the outgoing task's results BEFORE its text is committed.
+        // Otherwise its final delivery lands after the commit and re-states the
+        // same words as a fresh partial — the segment appears twice, or worse,
+        // replaces the new task's text with the previous 50 seconds.
+        epoch += 1
         request = nil
         task = nil
         isRecording = false
         rollingOver = false
         diagnostic = "mic: rolled the recognition task over at 50s"
-        // beginTask() commits the partial from the task we just ended.
+        // beginTask() commits the partial from the task we just ended, so the
+        // text carries across the boundary instead of restarting from empty.
         beginTask(forceNetwork: !usedOnDeviceForThisTask)
     }
 

@@ -9,6 +9,7 @@ struct MeetResult: Identifiable {
         case recognised
         case newFace
         case merged
+        case renamed
         case guidance
         case failed
     }
@@ -16,20 +17,55 @@ struct MeetResult: Identifiable {
     let id = UUID()
     let kind: Kind
     let name: String
-    let subhead: String
+    let role: String
+    let org: String
     let headline: String
     let lines: [String]
     let topics: [String]
     let followups: [String]
     let transcript: String
     let placeholder: Bool
+    /// The auto-generated name this pass retired, if the conversation finally
+    /// told us who the face belongs to.
+    let renamedFrom: String
     let date = Date()
+
+    init(
+        kind: Kind,
+        name: String,
+        role: String = "",
+        org: String = "",
+        headline: String,
+        lines: [String] = [],
+        topics: [String] = [],
+        followups: [String] = [],
+        transcript: String = "",
+        placeholder: Bool = false,
+        renamedFrom: String = ""
+    ) {
+        self.kind = kind
+        self.name = name
+        self.role = role
+        self.org = org
+        self.headline = headline
+        self.lines = lines
+        self.topics = topics
+        self.followups = followups
+        self.transcript = transcript
+        self.placeholder = placeholder
+        self.renamedFrom = renamedFrom
+    }
+
+    var subhead: String {
+        [role, org].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
 
     var badge: String {
         switch kind {
         case .recognised: return "KNOWN"
         case .newFace: return "NEW FACE"
         case .merged: return "FACE LINKED"
+        case .renamed: return "NAMED"
         case .guidance: return "TRY AGAIN"
         case .failed: return "FAILED"
         }
@@ -37,10 +73,33 @@ struct MeetResult: Identifiable {
 
     var badgeTint: Color {
         switch kind {
-        case .recognised, .merged: return .rcAccent
+        case .recognised, .merged, .renamed: return .rcAccent
         case .newFace: return .rcAccent
         case .guidance, .failed: return .rcAlert
         }
+    }
+}
+
+// MARK: - Resolved identity
+
+/// Who the graph settled on for the face in front of the camera, after the
+/// transcript has had its say.
+///
+/// The whole point of this type is that a name is decided ONCE, from the
+/// transcript first and a placeholder only as a fallback — the two paths that
+/// used to disagree (auto-enroll minting "New contact NN" while `ingest`
+/// separately created the real person) now produce one value.
+private struct ResolvedIdentity {
+    var name: String
+    var role: String = ""
+    var org: String = ""
+    var receipt: IngestReceipt?
+    /// Set when this pass retired an auto-generated placeholder.
+    var renamedFrom: String = ""
+    var isPlaceholder: Bool = false
+
+    var subhead: String {
+        [role, org].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 
@@ -188,9 +247,8 @@ final class MeetEngine: ObservableObject {
             statusLine = "Backend didn't answer."
             results.append(
                 MeetResult(
-                    kind: .failed, name: "Couldn't reach the graph", subhead: "",
-                    headline: error.localizedDescription, lines: [], topics: [],
-                    followups: [], transcript: transcript, placeholder: false
+                    kind: .failed, name: "Couldn't reach the graph",
+                    headline: error.localizedDescription, transcript: transcript
                 )
             )
             await ReminiCards.shared.showGuidance("Backend unreachable — check Connect.")
@@ -205,26 +263,58 @@ final class MeetEngine: ObservableObject {
     private func handleMatch(
         _ recognition: Recognition, transcript: String, jpeg: Data
     ) async {
-        statusLine = "Recalling \(recognition.name)…"
-        FaceCache.store(jpeg, for: recognition.name)
+        let matchedPlaceholder = FaceCache.isPlaceholder(recognition.name)
+        statusLine = matchedPlaceholder
+            ? "Seen before — listening for who they actually are…"
+            : "Recalling \(recognition.name)…"
 
-        // Pin the conversation to the face we just matched so a first name in
-        // the transcript can't spawn a duplicate node.
-        var receipt: IngestReceipt?
+        var who = ResolvedIdentity(
+            name: recognition.name,
+            role: recognition.role,
+            org: recognition.org,
+            isPlaceholder: matchedPlaceholder
+        )
+
         if !transcript.isEmpty {
-            receipt = try? await RecallAPI.ingest(
-                transcript: transcript, speaker: recognition.name
-            )
+            if matchedPlaceholder {
+                // The face is on an auto-named node. Pinning the conversation
+                // to that name with `speaker` is exactly what kept "New contact
+                // 03" collecting topics while a second node carried the real
+                // name — so let the extractor try for a name FIRST.
+                let free = try? await RecallAPI.ingest(transcript: transcript)
+                if let free, let real = FaceCache.usableRealName(free.saved) {
+                    who.receipt = free
+                    if !free.role.isEmpty { who.role = free.role }
+                    if !free.org.isEmpty { who.org = free.org }
+                    await reconcile(placeholder: recognition.name, to: real, jpeg: jpeg, into: &who)
+                } else {
+                    // Still nobody named — keep the conversation attached to
+                    // the placeholder rather than dropping it on the floor.
+                    who.receipt = try? await RecallAPI.ingest(
+                        transcript: transcript, speaker: recognition.name
+                    )
+                }
+            } else {
+                // A known name pins the conversation, so a first name in the
+                // transcript can't spawn a duplicate node.
+                who.receipt = try? await RecallAPI.ingest(
+                    transcript: transcript, speaker: recognition.name
+                )
+                await fillProfile(&who, jpeg: jpeg)
+            }
         }
 
-        let card = (try? await RecallAPI.recall(name: recognition.name))
-            ?? RecallCard.empty(name: recognition.name)
+        FaceCache.store(jpeg, for: who.name)
 
-        let subhead = [recognition.role, recognition.org.isEmpty ? card.org : recognition.org]
-            .filter { !$0.isEmpty }
-            .joined(separator: " · ")
+        let card = (try? await RecallAPI.recall(name: who.name))
+            ?? RecallCard.empty(name: who.name)
+        if who.org.isEmpty { who.org = card.org }
+
+        let receipt = who.receipt
         var lines = card.lines
-        if lines.isEmpty, !recognition.spoken.isEmpty { lines = [recognition.spoken] }
+        if lines.isEmpty, !recognition.spoken.isEmpty, who.renamedFrom.isEmpty {
+            lines = [recognition.spoken]
+        }
         if lines.isEmpty, let receipt, !receipt.topics.isEmpty {
             lines = ["You talked about \(receipt.topics.joined(separator: ", "))."]
         }
@@ -234,56 +324,163 @@ final class MeetEngine: ObservableObject {
         }
         if lines.isEmpty { lines = ["You've met before — no notes yet."] }
 
-        let headline = card.headline.isEmpty ? recognition.title : card.headline
+        let renamed = !who.renamedFrom.isEmpty
+        let headline = renamed
+            ? "\(who.renamedFrom) is really \(who.name)"
+            : (card.headline.isEmpty ? recognition.title : card.headline)
 
         results.append(
             MeetResult(
-                kind: .recognised,
-                name: recognition.name,
-                subhead: subhead,
+                kind: renamed ? .renamed : .recognised,
+                name: who.name,
+                role: who.role,
+                org: who.org,
                 headline: headline,
                 lines: lines,
                 topics: card.topics.isEmpty ? (receipt?.topics ?? []) : card.topics,
                 followups: followups,
                 transcript: transcript,
-                placeholder: false
+                placeholder: who.isPlaceholder,
+                renamedFrom: who.renamedFrom
             )
         )
-        statusLine = "Matched in \(recognition.elapsedMs) ms"
+        statusLine = renamed
+            ? "Renamed \(who.renamedFrom) → \(who.name)."
+            : "Matched in \(recognition.elapsedMs) ms"
 
-        speech?.speak(
-            recognition.spoken.isEmpty
-                ? ([headline] + lines.prefix(1)).joined(separator: ". ")
-                : recognition.spoken
-        )
+        if renamed {
+            speech?.speak("That's \(who.name). Renamed from \(who.renamedFrom).")
+        } else {
+            speech?.speak(
+                recognition.spoken.isEmpty
+                    ? ([headline] + lines.prefix(1)).joined(separator: ". ")
+                    : recognition.spoken
+            )
+        }
         await ReminiCards.shared.showRecall(
-            headline: recognition.name,
-            subhead: subhead,
+            headline: who.name,
+            subhead: who.subhead,
             lines: lines + followups.map { "You owe them: \($0)" },
-            name: recognition.name
+            name: who.name
         )
+    }
+
+    // MARK: Identity plumbing
+
+    /// Retire an auto-generated placeholder in favour of the name the
+    /// conversation supplied.
+    ///
+    /// At the moment this is called the graph holds TWO nodes: the placeholder
+    /// carries the face vector, and `ingest` has just put the topics and the
+    /// interaction on a node under the real name. `Enroll` merges by name, so
+    /// replaying the captured frame under the real name moves the face onto the
+    /// right node (`attached_to_existing: true`) and `forget` then removes the
+    /// placeholder — leaving exactly one node with both the face and the
+    /// topics. Verified end to end against the live API.
+    private func reconcile(
+        placeholder: String, to real: String, jpeg: Data, into who: inout ResolvedIdentity
+    ) async {
+        statusLine = "That's \(real) — merging \(placeholder)…"
+
+        guard
+            let outcome = try? await RecallAPI.enrollOutcome(
+                name: real, photoJpeg: jpeg, role: who.role, org: who.org
+            ),
+            outcome.enrolled
+        else {
+            // The face didn't move. Deleting the placeholder now would take the
+            // only node holding the face vector with it, so leave both alone.
+            return
+        }
+
+        try? await RecallAPI.forget(name: placeholder)
+        FaceCache.move(from: placeholder, to: outcome.name)
+        FaceCache.store(jpeg, for: outcome.name)
+        FaceCache.clearPlaceholder(placeholder)
+
+        who.name = outcome.name
+        who.renamedFrom = placeholder
+        who.isPlaceholder = false
+    }
+
+    /// Retire a placeholder that was created from this exact frame before the
+    /// conversation supplied a real name — the "a placeholder already exists
+    /// earlier in the flow" case, which happens when an earlier pass (or the
+    /// Capture tab) banked the same still while nobody had introduced
+    /// themselves yet.
+    ///
+    /// Matching on the stored bytes is deliberate: it fires only for the frame
+    /// we know is the same person, so two different strangers can never be
+    /// merged by a near-miss heuristic.
+    private func retireStalePlaceholder(
+        holding jpeg: Data, for who: inout ResolvedIdentity
+    ) async {
+        let stale = FaceCache.placeholderNames.first {
+            $0.caseInsensitiveCompare(who.name) != .orderedSame
+                && FaceCache.frame(for: $0) == jpeg
+        }
+        guard let stale else { return }
+        statusLine = "Merging \(stale) into \(who.name)…"
+        try? await RecallAPI.forget(name: stale)
+        FaceCache.forget(stale)
+        FaceCache.clearPlaceholder(stale)
+        who.renamedFrom = stale
+    }
+
+    /// Write a job title back onto the Person node.
+    ///
+    /// Checked against the live walker: `ingest` stores and reports `org`
+    /// itself (it fills the field whenever the node's is empty), but its
+    /// `ContactInfo` has no role field at all, so a title can only ever reach
+    /// the node through `Enroll` — which accepts optional role/org and merges
+    /// onto the existing person by name. The round trip is skipped when there
+    /// is no title to add, which is why a normal matched conversation still
+    /// costs exactly one ingest.
+    private func fillProfile(_ who: inout ResolvedIdentity, jpeg: Data) async {
+        guard let receipt = who.receipt else { return }
+        if !receipt.org.isEmpty { who.org = receipt.org }
+
+        let role = receipt.role.trimmingCharacters(in: .whitespaces)
+        guard !role.isEmpty, role != who.role else { return }
+
+        _ = try? await RecallAPI.enrollOutcome(
+            name: who.name, photoJpeg: jpeg, role: role, org: who.org
+        )
+        who.role = role
     }
 
     /// A miss is never a dead end. The same frame is enrolled immediately —
     /// under the name the conversation gave us if there was one, otherwise a
     /// placeholder the user renames later from Network.
     private func handleMiss(transcript: String, jpeg: Data) async {
-        statusLine = "New face — adding them to your network…"
-
+        // Ingest FIRST. The transcript is the only thing that can give this
+        // face a real name, and minting "New contact NN" before asking is what
+        // stranded placeholders with a full history and no identity.
         var receipt: IngestReceipt?
-        var name = ""
         if !transcript.isEmpty {
+            statusLine = "New face — listening for who they are…"
             receipt = try? await RecallAPI.ingest(transcript: transcript)
-            name = receipt?.saved.trimmingCharacters(in: .whitespaces) ?? ""
         }
 
-        let isPlaceholder = name.isEmpty
-        if isPlaceholder { name = FaceCache.nextPlaceholderName() }
+        var who = ResolvedIdentity(name: "", receipt: receipt)
+        if let real = FaceCache.usableRealName(receipt?.saved ?? "") {
+            who.name = real
+            who.role = receipt?.role ?? ""
+            who.org = receipt?.org ?? ""
+        } else {
+            // Only now, and only because nobody said a name.
+            who.name = FaceCache.nextPlaceholderName()
+            who.isPlaceholder = true
+        }
+        let isPlaceholder = who.isPlaceholder
+        statusLine = "Adding \(who.name) to your network…"
 
         do {
             let outcome = try await RecallAPI.enrollOutcome(
-                name: name,
+                name: who.name,
                 photoJpeg: jpeg,
+                role: who.role,
+                org: who.org,
                 relationship: isPlaceholder ? "just met" : "",
                 // Only carry the raw line when ingest didn't already structure
                 // it, so auto-enroll never clobbers better data.
@@ -297,15 +494,17 @@ final class MeetEngine: ObservableObject {
                     MeetResult(
                         kind: .guidance,
                         name: "No face in that frame",
-                        subhead: "",
                         headline: outcome.friendlyReason,
                         lines: transcript.isEmpty
                             ? []
-                            : ["What they said was still saved to the graph."],
+                            : [
+                                who.isPlaceholder
+                                    ? "What they said was still saved to the graph."
+                                    : "What \(who.name) said was still saved to the graph."
+                            ],
                         topics: receipt?.topics ?? [],
                         followups: receipt?.followups ?? [],
-                        transcript: transcript,
-                        placeholder: false
+                        transcript: transcript
                     )
                 )
                 await ReminiCards.shared.showGuidance(outcome.friendlyReason)
@@ -313,15 +512,23 @@ final class MeetEngine: ObservableObject {
                 return
             }
 
-            FaceCache.store(jpeg, for: outcome.name)
-            if isPlaceholder { FaceCache.markPlaceholder(outcome.name) }
+            who.name = outcome.name
+            FaceCache.store(jpeg, for: who.name)
+            if isPlaceholder {
+                FaceCache.markPlaceholder(who.name)
+            } else {
+                // The conversation named them, but an earlier pass may have
+                // already banked this very frame under a placeholder — retire
+                // it so the face and the topics end up on one node.
+                await retireStalePlaceholder(holding: jpeg, for: &who)
+            }
 
             var lines: [String] = []
             if let receipt, !receipt.topics.isEmpty {
                 lines.append("Talked about \(receipt.topics.joined(separator: ", ")).")
             }
-            if let org = receipt?.org, !org.isEmpty {
-                lines.append("Works at \(org).")
+            if !who.org.isEmpty {
+                lines.append("Works at \(who.org).")
             }
             if let owed = receipt?.followups.first {
                 lines.append("You owe them: \(owed).")
@@ -329,39 +536,50 @@ final class MeetEngine: ObservableObject {
             if lines.isEmpty {
                 lines.append(
                     isPlaceholder
-                        ? "Saved as \(outcome.name) — rename them in Network."
+                        ? "Saved as \(who.name) — rename them in Network."
                         : "Face saved. Recall will know them next time."
                 )
             }
 
-            let subhead = [receipt?.org ?? ""].filter { !$0.isEmpty }.joined()
+            let renamed = !who.renamedFrom.isEmpty
+            let kind: MeetResult.Kind = renamed
+                ? .renamed
+                : (outcome.attachedToExisting ? .merged : .newFace)
+            let headline: String
+            if renamed {
+                headline = "\(who.renamedFrom) is really \(who.name)"
+            } else if outcome.attachedToExisting {
+                headline = "Face linked to \(who.name)"
+            } else {
+                headline = "New face — added as \(who.name)"
+            }
 
             results.append(
                 MeetResult(
-                    kind: outcome.attachedToExisting ? .merged : .newFace,
-                    name: outcome.name,
-                    subhead: subhead,
-                    headline: outcome.attachedToExisting
-                        ? "Face linked to \(outcome.name)"
-                        : "New face — added as \(outcome.name)",
+                    kind: kind,
+                    name: who.name,
+                    role: who.role,
+                    org: who.org,
+                    headline: headline,
                     lines: lines,
                     topics: receipt?.topics ?? [],
                     followups: receipt?.followups ?? [],
                     transcript: transcript,
-                    placeholder: isPlaceholder
+                    placeholder: isPlaceholder,
+                    renamedFrom: who.renamedFrom
                 )
             )
             statusLine = outcome.attachedToExisting
-                ? "Face linked to \(outcome.name)."
-                : "\(outcome.name) added."
+                ? "Face linked to \(who.name)."
+                : "\(who.name) added."
 
             speech?.speak(
                 isPlaceholder
                     ? "New face. Added to your network. Rename them later."
-                    : "New face. \(outcome.name), added to your network."
+                    : "New face. \(who.name), added to your network."
             )
             await ReminiCards.shared.showNewFace(
-                name: outcome.name,
+                name: who.name,
                 detail: lines.first ?? "",
                 merged: outcome.attachedToExisting
             )
@@ -369,9 +587,8 @@ final class MeetEngine: ObservableObject {
             errorText = error.localizedDescription
             results.append(
                 MeetResult(
-                    kind: .failed, name: "Couldn't add that face", subhead: "",
-                    headline: error.localizedDescription, lines: [], topics: [],
-                    followups: [], transcript: transcript, placeholder: false
+                    kind: .failed, name: "Couldn't add that face",
+                    headline: error.localizedDescription, transcript: transcript
                 )
             )
             await ReminiCards.shared.showGuidance("Couldn't save that face — check Connect.")
@@ -683,21 +900,45 @@ struct MeetView: View {
 struct MeetResultCard: View {
     let result: MeetResult
 
+    /// Guidance and failure rows carry a sentence where the name goes, not a
+    /// person — an avatar there would be nonsense.
+    private var showsAvatar: Bool {
+        switch result.kind {
+        case .recognised, .newFace, .merged, .renamed: return true
+        case .guidance, .failed: return false
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 12) {
+                if showsAvatar {
+                    Avatar(name: result.name, size: 52)
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(result.name)
                         .font(.rcDisplay(22))
                         .foregroundStyle(Color.rcText)
+                        .fixedSize(horizontal: false, vertical: true)
                     if !result.subhead.isEmpty {
                         Text(result.subhead)
                             .font(.rcCaption.weight(.medium))
                             .foregroundStyle(Color.rcAccent)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                Spacer()
+                Spacer(minLength: 4)
                 Chip(text: result.badge, tint: result.badgeTint, filled: true)
+            }
+
+            if !result.renamedFrom.isEmpty {
+                Label(
+                    "Renamed from “\(result.renamedFrom)” — the placeholder was merged away, so \(result.name) now holds the face and everything you talked about.",
+                    systemImage: "person.crop.circle.badge.checkmark"
+                )
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.rcAccent)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             if !result.headline.isEmpty {

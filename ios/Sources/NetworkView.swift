@@ -276,6 +276,13 @@ struct NetworkView: View {
 
 // MARK: - Avatar
 
+/// The contact's picture: the frame Recall captured when it met them, falling
+/// back to their initials.
+///
+/// The backend `Person` node has no photo field, so the picture lives on the
+/// phone in `FaceCache`, keyed by the resolved name — which is why a rename
+/// re-keys the cache instead of leaving the photo stranded under
+/// "New contact 03".
 struct Avatar: View {
     let name: String
     var size: CGFloat = 46
@@ -286,19 +293,27 @@ struct Avatar: View {
         return String(letters).uppercased()
     }
 
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
+    }
+
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                .fill(Color.rcAccent.opacity(0.16))
-                .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
-                        .stroke(Color.rcAccent.opacity(0.35), lineWidth: 1)
-                )
-            Text(initials.isEmpty ? "?" : initials)
-                .font(.system(size: size * 0.38, weight: .bold))
-                .foregroundStyle(Color.rcAccent)
+            if let photo = FaceCache.image(for: name) {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                shape.fill(Color.rcAccent.opacity(0.16))
+                Text(initials.isEmpty ? "?" : initials)
+                    .font(.system(size: size * 0.38, weight: .bold))
+                    .foregroundStyle(Color.rcAccent)
+            }
         }
         .frame(width: size, height: size)
+        .clipShape(shape)
+        .overlay(shape.stroke(Color.rcAccent.opacity(0.35), lineWidth: 1))
+        .accessibilityLabel(Text("Photo of \(name)"))
     }
 }
 
@@ -323,6 +338,23 @@ struct ContactView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                if FaceCache.image(for: name) != nil {
+                    HStack(spacing: 14) {
+                        Avatar(name: name, size: 84)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(name)
+                                .font(.rcDisplay(21))
+                                .foregroundStyle(Color.rcText)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text("Photo taken when Recall met them.")
+                                .font(.system(size: 12.5))
+                                .foregroundStyle(Color.rcTextDim)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .panel()
+                }
+
                 if FaceCache.isPlaceholder(name) {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionLabel("Auto-enrolled", icon: "sparkles")

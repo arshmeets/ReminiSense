@@ -35,9 +35,15 @@ enum FaceCache {
         folder?.appendingPathComponent("\(slug(name)).jpg")
     }
 
+    /// Decoded frames, so a roster of avatars doesn't hit the disk on every
+    /// SwiftUI body evaluation. Invalidated whenever the file behind a name
+    /// changes, which is the only way the picture can go stale.
+    private static let decoded = NSCache<NSString, UIImage>()
+
     static func store(_ jpeg: Data, for name: String) {
         guard let url = url(for: name) else { return }
         try? jpeg.write(to: url, options: .atomic)
+        decoded.removeObject(forKey: name as NSString)
     }
 
     static func frame(for name: String) -> Data? {
@@ -46,16 +52,27 @@ enum FaceCache {
     }
 
     static func image(for name: String) -> UIImage? {
-        frame(for: name).flatMap(UIImage.init(data:))
+        if let hit = decoded.object(forKey: name as NSString) { return hit }
+        guard let image = frame(for: name).flatMap(UIImage.init(data:)) else {
+            return nil
+        }
+        decoded.setObject(image, forKey: name as NSString)
+        return image
     }
 
+    /// Re-key a stored frame — used when a placeholder turns out to have a real
+    /// name, so the avatar follows the person instead of being orphaned under
+    /// "New contact 03".
     static func move(from old: String, to new: String) {
-        guard let jpeg = frame(for: old) else { return }
+        guard old.caseInsensitiveCompare(new) != .orderedSame,
+              let jpeg = frame(for: old)
+        else { return }
         store(jpeg, for: new)
         forget(old)
     }
 
     static func forget(_ name: String) {
+        decoded.removeObject(forKey: name as NSString)
         guard let url = url(for: name) else { return }
         try? FileManager.default.removeItem(at: url)
     }
@@ -97,5 +114,20 @@ enum FaceCache {
     static func isPlaceholder(_ name: String) -> Bool {
         placeholderNames.contains(name)
             || name.range(of: #"^New contact \d"#, options: .regularExpression) != nil
+    }
+
+    /// The one rule for "did the conversation actually tell us who this is?".
+    ///
+    /// `ingest` reports `saved: ""` when nobody introduced themselves, and it
+    /// echoes back the placeholder itself when the walk was pinned to one with
+    /// `speaker`. Neither counts as a real name, and treating the second as one
+    /// is what let "New contact 03" keep collecting topics under its auto-name.
+    static func usableRealName(_ raw: String) -> String? {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name.count > 1, !isPlaceholder(name) else { return nil }
+        // Guard against the extractor handing back a non-answer.
+        let junk = ["unknown", "unnamed", "n/a", "none", "someone", "speaker"]
+        guard !junk.contains(name.lowercased()) else { return nil }
+        return name
     }
 }
