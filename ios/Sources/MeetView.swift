@@ -231,6 +231,14 @@ final class MeetEngine: ObservableObject {
             transcript = carried
         }
         if !transcript.isEmpty { lastConsumedTranscript = transcript }
+        // What this pass will hand to the graph, next to what is on screen.
+        // The two must be identical; if they ever aren't, this is the line that
+        // says so.
+        print(
+            "[recall] capture done — heard(\(fresh.count))=\"\(fresh)\" | "
+                + "using(\(transcript.count))=\"\(transcript)\" | "
+                + "on screen(\(dictation.transcript.count))=\"\(dictation.transcript)\""
+        )
 
         // 3 — who is it?
         phase = .thinking

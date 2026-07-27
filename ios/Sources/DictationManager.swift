@@ -221,7 +221,13 @@ final class DictationManager: ObservableObject {
             engine.prepare()
             try engine.start()
             engineRunning = true
-            diagnostic = "mic: engine running @ \(Int(format.sampleRate)) Hz · \(AudioSessionController.shared.routeDescription)"
+            // The sample rate is the tell: the phone mic runs at 44.1/48 kHz,
+            // a Bluetooth headset mic drags the whole route down to 8 kHz HFP.
+            let source = AudioSessionController.shared.inputIsPhoneMic
+                ? "phone mic" : "EXTERNAL MIC — expect poor transcription"
+            diagnostic = "mic: engine running @ \(Int(format.sampleRate)) Hz · "
+                + "\(source) · \(AudioSessionController.shared.routeDescription)"
+            print("[recall] \(diagnostic)")
             return true
         } catch {
             engineRunning = false

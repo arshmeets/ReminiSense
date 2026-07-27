@@ -242,7 +242,10 @@ struct ListenView: View {
     // MARK: Flow
 
     private func submit() async {
-        let text = dictation.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Freeze first: the text on screen at the moment of tapping is exactly
+        // the text that goes to the graph, with no late recogniser result able
+        // to rewrite it in flight.
+        let text = dictation.seal()
         guard !text.isEmpty, !sending else { return }
         sending = true
         errorText = nil

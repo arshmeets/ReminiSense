@@ -58,6 +58,7 @@ final class AudioSessionController: ObservableObject {
                 configured = true
             }
             try session.setActive(true, options: [])
+            pinInputToPhoneMic()
             isActive = true
             status = "audio session: active · \(routeDescription)"
             return true
@@ -79,12 +80,43 @@ final class AudioSessionController: ObservableObject {
         }
         do {
             try AVAudioSession.sharedInstance().setActive(true, options: [])
+            pinInputToPhoneMic()
             isActive = true
             status = "audio session: active · \(routeDescription)"
         } catch {
             status = "audio session re-activate failed: \(error.localizedDescription)"
             print("[recall] \(status)")
         }
+    }
+
+    /// Force capture onto the phone's own microphone.
+    ///
+    /// `.allowBluetooth` is what lets the ear line reach the glasses, but it
+    /// also offers their headset microphone to the system — and when iOS takes
+    /// it, the whole route drops to 8 kHz HFP. That is a bad microphone for
+    /// speech recognition and it degrades playback at the same time. Naming the
+    /// built-in mic as the preferred input keeps capture on the phone while
+    /// output still goes out to the glasses over A2DP, which is the
+    /// combination the demo wants.
+    func pinInputToPhoneMic() {
+        let session = AVAudioSession.sharedInstance()
+        guard
+            let builtIn = session.availableInputs?.first(where: {
+                $0.portType == .builtInMic
+            })
+        else { return }
+        do {
+            try session.setPreferredInput(builtIn)
+        } catch {
+            print("[recall] couldn't pin the phone mic: \(error.localizedDescription)")
+        }
+    }
+
+    /// True when capture is on the phone's own microphone, which is what the
+    /// speech recogniser needs.
+    var inputIsPhoneMic: Bool {
+        AVAudioSession.sharedInstance().currentRoute.inputs
+            .first?.portType == .builtInMic
     }
 
     var routeDescription: String {
@@ -103,6 +135,9 @@ final class AudioSessionController: ObservableObject {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
+                // Re-pin before listeners rebuild: the glasses connecting is
+                // exactly when iOS tries to move capture onto their headset mic.
+                self.pinInputToPhoneMic()
                 self.routeGeneration += 1
                 self.status = "audio session: active · \(self.routeDescription)"
             }
