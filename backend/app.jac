@@ -255,10 +255,23 @@ sem identify_thing.frame = "A camera frame from a wearable device.";
 
 # ---------------------------------------------------------------- recall AI
 
-def caption_line(heard: str, lang: str) -> str by fast(temperature=0.0, max_tokens=200);
-sem caption_line = "Clean up one chunk of live speech-to-text for display on a heads-up screen: fix obvious mis-transcriptions, add punctuation, drop filler words. If the target language differs from the language spoken, translate into it. Return only the caption text - no quotes, no commentary, no speaker labels.";
-sem caption_line.heard = "A raw chunk of speech-to-text from a noisy room. May be garbled.";
-sem caption_line.lang  = "Target language for the caption, e.g. 'en', 'es'. Translate only if the speech is in another language.";
+obj Caption {
+    has language: str,
+        text: str;
+}
+
+sem Caption.language = "The ISO code of the language you wrote `text` in. This MUST equal the requested target language. Naming it first is what stops the caption coming back untranslated.";
+
+sem Caption.text = "The caption to put on screen, written in the target language. It is always the speech itself - cleaned up, and translated when the target language differs from the language spoken. Never a question back to the user, never a request for input, never an explanation. If the input is too short or garbled to improve, return it as-is rather than commenting on it.";
+
+# Typed rather than `-> str` on purpose: a bare str return gets no schema
+# enforcement and is never retried, so a model that answers conversationally
+# ("I need actual input values to process...") lands straight on the glasses.
+# Filling an obj gives both a schema and automatic corrective retries.
+def caption_line(heard: str, lang: str) -> Caption by fast(temperature=0.0, max_tokens=200);
+sem caption_line = "Clean up one chunk of live speech-to-text for display on a heads-up screen: fix obvious mis-transcriptions, add punctuation, drop filler words. If the target language differs from the language spoken, translate into it. The input is always real captured speech, however odd it looks - caption it, do not ask for clarification.";
+sem caption_line.heard = "The captured speech to clean up.";
+sem caption_line.lang  = "The language the caption MUST be written in, as an ISO code ('en', 'es', 'fr', 'de', 'ja'). If the speech is in a different language, translate it. The wearer reads only this language.";
 
 
 obj ContactInfo {
@@ -656,11 +669,28 @@ walker:pub caption {
         reports: list[dict] = [];
 
     can show with Root entry {
-        if self.text.strip() == "" {
+        heard: str = self.text.strip();
+        if heard == "" {
             report {"display_text": ""};
             return;
         }
-        report {"display_text": caption_line(self.text, self.lang)};
+
+        # A one- or two-word fragment carries no filler to strip and no
+        # grammar to repair, but it does give a model room to improvise -
+        # short inputs were coming back as the parameter's own description.
+        # Tidy them here instead: no model call, no latency, nothing to
+        # hallucinate. Anything needing translation still goes to the LLM.
+        if len(heard.split()) < 3 and self.lang == "en" {
+            tidy: str = heard[0].upper() + heard[1:];
+            if tidy[-1] not in ".!?," {
+                tidy = tidy + ".";
+            }
+            report {"display_text": tidy};
+            return;
+        }
+
+        said = caption_line(heard, self.lang);
+        report {"display_text": said.text};
     }
 }
 
