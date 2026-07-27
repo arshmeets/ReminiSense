@@ -60,7 +60,11 @@ node Person {
         notes: str = "",
         interests: list[str] = [],
         followups: list[str] = [],
-        face_vec: list[float] = [];
+        face_vec: list[float] = [],
+        # Set by the self-hosted build's Enroll walker; always empty here,
+        # but declared so both builds share one schema and clients can rely
+        # on the field existing.
+        photo_b64: str = "";
 }
 
 
@@ -326,6 +330,7 @@ walker:pub Roster {
                 "name": p.name, "role": p.role, "org": p.org,
                 "relationship": p.relationship,
                 "enrolled_face": len(p.face_vec) > 0,
+                "photo_b64": p.photo_b64,
                 "encounters": seen
             });
         }
@@ -527,6 +532,7 @@ walker:pub recall {
             "found": True,
             "name": who.name,
             "org": who.org,
+            "photo_b64": who.photo_b64,
             "headline": card.headline,
             "lines": card.lines,
             "topics": topics,
@@ -707,7 +713,7 @@ walker:pub person_card {
             md = md + "\n## History\n" + "\n".join(past) + "\n";
         }
 
-        report {"name": who.name, "md": md};
+        report {"name": who.name, "photo_b64": who.photo_b64, "md": md};
     }
 }
 
